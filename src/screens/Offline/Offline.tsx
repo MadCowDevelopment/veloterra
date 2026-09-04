@@ -11,9 +11,13 @@ import {
   MAX_DOWNLOAD_MB,
   type DownloadProgress,
 } from '../../lib/offline'
+import { addRegion, listRegions, deleteRegion } from '../../lib/regions'
+import type { RegionRow } from '../../data/db'
+import { usePrefs } from '../../state/prefs'
+import { styleUrl } from '../../map/styles'
 import './Offline.css'
 
-const DARK_STYLE = 'https://tiles.openfreemap.org/styles/dark'
+const mb = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1)
 
 export function Offline() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -21,14 +25,21 @@ export function Offline() {
   const mapRef = useRef<MlMap | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
+  const mapStyle = usePrefs((s) => s.mapStyle)
   const [bounds, setBounds] = useState<Bounds | null>(null)
   const [tiles, setTiles] = useState(0)
   const [downloading, setDownloading] = useState(false)
   const [progress, setProgress] = useState<DownloadProgress | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [regions, setRegions] = useState<RegionRow[]>([])
 
   const estMB = estimateMB(tiles)
   const tooBig = estMB > MAX_DOWNLOAD_MB
+
+  const loadRegions = () => listRegions().then(setRegions)
+  useEffect(() => {
+    loadRegions()
+  }, [])
 
   // Selection = the geographic bounds under the on-screen rectangle.
   const recompute = () => {
@@ -54,7 +65,7 @@ export function Offline() {
     if (!containerRef.current || mapRef.current) return
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: DARK_STYLE,
+      style: styleUrl(mapStyle),
       center: [10.45, 51.16],
       zoom: 5,
       attributionControl: { compact: true },
@@ -78,8 +89,9 @@ export function Offline() {
     abortRef.current = ac
     try {
       const res = await downloadArea(bounds, setProgress, ac.signal)
-      const mb = (res.bytes / (1024 * 1024)).toFixed(1)
-      setMessage(`✓ Area saved for offline — ${mb} MB, ${res.done} files.`)
+      await addRegion(bounds, res.urls, res.bytes, tiles)
+      loadRegions()
+      setMessage(`✓ Area saved for offline — ${mb(res.bytes)} MB, ${res.done} files.`)
     } catch (e) {
       setMessage((e as Error).name === 'AbortError' ? 'Download cancelled.' : 'Download failed.')
     } finally {
@@ -90,8 +102,14 @@ export function Offline() {
 
   const cancel = () => abortRef.current?.abort()
 
+  const removeRegion = async (id: string) => {
+    await deleteRegion(id)
+    loadRegions()
+  }
+
   const clear = async () => {
     const n = await clearOfflineMaps()
+    loadRegions()
     setMessage(n ? 'Offline maps cleared.' : 'Nothing to clear.')
   }
 
@@ -106,8 +124,10 @@ export function Offline() {
       </div>
 
       <header className="offline__top">
-        <Link to="/" className="pill-btn" aria-label="Back to menu">
-          ‹
+        <Link to="/" className="offline__back" aria-label="Back to menu">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
         </Link>
       </header>
 
@@ -153,6 +173,28 @@ export function Offline() {
           <div className="offline__warn">
             Offline saving needs the installed app (service worker). It won’t persist on the
             dev server.
+          </div>
+        )}
+
+        {regions.length > 0 && (
+          <div className="offline__regions">
+            {regions.map((r) => (
+              <div key={r.id} className="offline__region">
+                <div>
+                  <div className="offline__region-name">{r.name}</div>
+                  <div className="offline__sub">
+                    {mb(r.bytes)} MB · {r.tiles.toLocaleString()} tiles
+                  </div>
+                </div>
+                <button
+                  className="offline__region-del"
+                  onClick={() => removeRegion(r.id)}
+                  aria-label={`Delete ${r.name}`}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
           </div>
         )}
 

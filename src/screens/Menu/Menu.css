@@ -121,6 +121,12 @@
   transform: scale(0.97);
 }
 
+.btn:disabled {
+  opacity: 0.4;
+  box-shadow: none;
+  pointer-events: none;
+}
+
 .btn--primary {
   height: 68px;
   font-size: 20px;

@@ -6,6 +6,8 @@ import { useWakeLock } from '../../hooks/useWakeLock'
 import { haversine, formatDistance, formatDuration, type LngLat } from '../../lib/geo'
 import { useWallet } from '../../state/wallet'
 import { useExplored } from '../../state/explored'
+import { usePrefs } from '../../state/prefs'
+import { MAP_STYLES } from '../../map/styles'
 import { MAX_ACCURACY_M } from '../../domain/economy'
 import './Ride.css'
 
@@ -86,7 +88,10 @@ export function Ride() {
         <button className="pill-btn" onClick={stop} aria-label="End ride">
           ✕
         </button>
-        <StatusBadge status={status} accuracy={fix?.accuracy} />
+        <div className="ride__top-right">
+          <StatusBadge status={status} accuracy={fix?.accuracy} />
+          <StylePicker />
+        </div>
       </div>
 
       <div className="ride__hud ride__hud--bottom">
@@ -123,6 +128,42 @@ export function Ride() {
           Stop Ride
         </button>
       </div>
+    </div>
+  )
+}
+
+function StylePicker() {
+  const [open, setOpen] = useState(false)
+  const mapStyle = usePrefs((s) => s.mapStyle)
+  const setMapStyle = usePrefs((s) => s.setMapStyle)
+  return (
+    <div className="stylepick">
+      <button
+        className="pill-btn"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Map style"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+          <path d="M12 2 2 7l10 5 10-5-10-5Z" />
+          <path d="m2 17 10 5 10-5M2 12l10 5 10-5" />
+        </svg>
+      </button>
+      {open && (
+        <div className="stylepick__menu">
+          {MAP_STYLES.map((s) => (
+            <button
+              key={s.id}
+              className={`stylepick__item ${s.id === mapStyle ? 'is-active' : ''}`}
+              onClick={() => {
+                setMapStyle(s.id)
+                setOpen(false)
+              }}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
