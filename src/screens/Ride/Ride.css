@@ -1,0 +1,196 @@
+.ride {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Map */
+.ride-map,
+.ride-map__canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+}
+
+/* Placeholder fog overlay (real H3 fog lands in M2) */
+.fog {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 52%,
+    transparent 0,
+    transparent 90px,
+    rgba(4, 7, 14, 0.35) 150px,
+    rgba(4, 7, 14, 0.72) 320px,
+    rgba(4, 7, 14, 0.9) 100%
+  );
+}
+
+/* Live position marker */
+.rider-dot {
+  position: relative;
+  width: 22px;
+  height: 22px;
+}
+
+.rider-dot__core {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #04140f;
+  box-shadow: 0 0 14px rgba(34, 227, 196, 0.9);
+}
+
+.rider-dot__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(34, 227, 196, 0.35);
+  animation: pulse 2s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* HUD */
+.ride__hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+.ride__hud--top {
+  top: max(16px, env(safe-area-inset-top));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ride__hud--bottom {
+  bottom: max(20px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ride__hud > * {
+  pointer-events: auto;
+}
+
+.pill-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 18px;
+  backdrop-filter: blur(12px);
+}
+
+.gps-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.gps-badge__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff6b6b;
+}
+
+.gps-badge--ok .gps-badge__dot {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.hud-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.hud-card {
+  padding: 12px;
+  text-align: center;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  backdrop-filter: blur(14px);
+}
+
+.hud-card__value {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.hud-card__label {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hud-card--coins {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hud-card--coins .hud-card__value {
+  font-size: 30px;
+  color: var(--coin);
+}
+
+.hud-card__coin {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  vertical-align: -2px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe9a8, var(--coin));
+  box-shadow: 0 0 10px rgba(255, 210, 87, 0.5);
+}
+
+.stop-btn {
+  height: 60px;
+  border-radius: var(--radius);
+  border: none;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #ff5470, #ff2d55);
+  box-shadow: 0 8px 24px rgba(255, 45, 85, 0.3);
+}
+
+.stop-btn:active {
+  transform: scale(0.98);
+}
