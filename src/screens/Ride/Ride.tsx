@@ -5,7 +5,14 @@ import { useGeolocation } from '../../hooks/useGeolocation'
 import { useWakeLock } from '../../hooks/useWakeLock'
 import { haversine, formatDistance, formatDuration, type LngLat } from '../../lib/geo'
 import { useWallet } from '../../state/wallet'
+import { useExplored } from '../../state/explored'
+import { MAX_ACCURACY_M } from '../../domain/economy'
 import './Ride.css'
+
+interface CoinPop {
+  id: number
+  amount: number
+}
 
 export function Ride() {
   const navigate = useNavigate()
@@ -13,12 +20,23 @@ export function Ride() {
   useWakeLock(true)
 
   const [distanceM, setDistanceM] = useState(0)
+  const [coinsThisRide, setCoinsThisRide] = useState(0)
+  const [pops, setPops] = useState<CoinPop[]>([])
   const [startedAt] = useState(() => Date.now())
   const [now, setNow] = useState(Date.now())
   const lastPoint = useRef<LngLat | null>(null)
+  const popId = useRef(0)
 
+  const addCoins = useWallet((s) => s.add)
   const addDistance = useWallet((s) => s.addDistance)
   const finishRide = useWallet((s) => s.finishRide)
+  const loadExplored = useExplored((s) => s.load)
+  const reveal = useExplored((s) => s.reveal)
+
+  // Load previously explored cells so the fog reflects past rides.
+  useEffect(() => {
+    loadExplored()
+  }, [loadExplored])
 
   // Tick the clock.
   useEffect(() => {
@@ -26,16 +44,29 @@ export function Ride() {
     return () => clearInterval(id)
   }, [])
 
-  // Accumulate distance from GPS fixes (ignore noisy low-accuracy jumps).
+  // On each fix: accumulate distance, reveal fog, award coins.
   useEffect(() => {
-    if (!fix) return
+    if (!fix || fix.accuracy > MAX_ACCURACY_M) return
+
     const point = { lng: fix.lng, lat: fix.lat }
-    if (lastPoint.current && fix.accuracy <= 30) {
+    if (lastPoint.current) {
       const step = haversine(lastPoint.current, point)
-      if (step >= 3 && step < 300) setDistanceM((d) => d + step)
+      if (step >= 3 && step < 300) {
+        setDistanceM((d) => d + step)
+        addDistance(step)
+      }
     }
     lastPoint.current = point
-  }, [fix])
+
+    const { coins } = reveal(fix)
+    if (coins > 0) {
+      addCoins(coins)
+      setCoinsThisRide((c) => c + coins)
+      const id = ++popId.current
+      setPops((p) => [...p, { id, amount: coins }])
+      setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 1100)
+    }
+  }, [fix, reveal, addCoins, addDistance])
 
   const speedKmh = useMemo(() => {
     if (fix?.speed != null && fix.speed >= 0) return fix.speed * 3.6
@@ -43,7 +74,6 @@ export function Ride() {
   }, [fix])
 
   const stop = () => {
-    addDistance(distanceM)
     finishRide()
     navigate('/')
   }
@@ -61,8 +91,15 @@ export function Ride() {
 
       <div className="ride__hud ride__hud--bottom">
         <div className="hud-card hud-card--coins">
+          <div className="coin-pops">
+            {pops.map((p) => (
+              <span key={p.id} className="coin-pop">
+                +{p.amount}
+              </span>
+            ))}
+          </div>
           <div className="hud-card__value">
-            +0 <span className="hud-card__coin" />
+            {coinsThisRide.toLocaleString()} <span className="hud-card__coin" />
           </div>
           <div className="hud-card__label">Coins this ride</div>
         </div>
