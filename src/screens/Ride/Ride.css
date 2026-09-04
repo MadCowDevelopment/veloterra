@@ -68,6 +68,20 @@
   z-index: 5;
   padding: 0 16px;
   pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.ride__hud.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ride__hud--top.is-hidden {
+  transform: translateY(-12px);
+}
+
+.ride__hud--bottom.is-hidden {
+  transform: translateY(16px);
 }
 
 .ride__hud--top {
@@ -204,7 +218,7 @@
 }
 
 .hud-card--coins .hud-card__value {
-  font-size: 30px;
+  font-size: 26px;
   color: var(--coin);
 }
 

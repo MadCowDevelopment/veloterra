@@ -150,6 +150,20 @@
   overflow-y: auto;
 }
 
+.offline__regions-head {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.offline__empty {
+  font-size: 13px;
+  color: var(--text-faint);
+  padding: 4px 0;
+}
+
 .offline__region {
   display: flex;
   align-items: center;

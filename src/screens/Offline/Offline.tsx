@@ -13,7 +13,6 @@ import {
 } from '../../lib/offline'
 import { addRegion, listRegions, deleteRegion } from '../../lib/regions'
 import type { RegionRow } from '../../data/db'
-import { usePrefs } from '../../state/prefs'
 import { styleUrl } from '../../map/styles'
 import './Offline.css'
 
@@ -25,7 +24,6 @@ export function Offline() {
   const mapRef = useRef<MlMap | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  const mapStyle = usePrefs((s) => s.mapStyle)
   const [bounds, setBounds] = useState<Bounds | null>(null)
   const [tiles, setTiles] = useState(0)
   const [downloading, setDownloading] = useState(false)
@@ -65,7 +63,7 @@ export function Offline() {
     if (!containerRef.current || mapRef.current) return
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: styleUrl(mapStyle),
+      style: styleUrl('bright'),
       center: [10.45, 51.16],
       zoom: 5,
       attributionControl: { compact: true },
@@ -176,7 +174,8 @@ export function Offline() {
           </div>
         )}
 
-        {regions.length > 0 && (
+        <div className="offline__regions-head">Offline areas ({regions.length})</div>
+        {regions.length > 0 ? (
           <div className="offline__regions">
             {regions.map((r) => (
               <div key={r.id} className="offline__region">
@@ -195,6 +194,10 @@ export function Offline() {
                 </button>
               </div>
             ))}
+          </div>
+        ) : (
+          <div className="offline__empty">
+            No offline areas yet — frame an area above and tap download.
           </div>
         )}
 

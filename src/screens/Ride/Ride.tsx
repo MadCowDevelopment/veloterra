@@ -26,8 +26,10 @@ export function Ride() {
   const [pops, setPops] = useState<CoinPop[]>([])
   const [startedAt] = useState(() => Date.now())
   const [now, setNow] = useState(Date.now())
+  const [hudVisible, setHudVisible] = useState(true)
   const lastPoint = useRef<LngLat | null>(null)
   const popId = useRef(0)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const addCoins = useWallet((s) => s.add)
   const addDistance = useWallet((s) => s.addDistance)
@@ -75,16 +77,32 @@ export function Ride() {
     return 0
   }, [fix])
 
+  // Keep the map the focus: reveal the HUD on tap, fade it after a few seconds.
+  const revealHud = () => {
+    setHudVisible(true)
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    hideTimer.current = setTimeout(() => setHudVisible(false), 4000)
+  }
+
+  useEffect(() => {
+    revealHud()
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current)
+    }
+  }, [])
+
   const stop = () => {
     finishRide()
     navigate('/')
   }
 
+  const hidden = hudVisible ? '' : ' is-hidden'
+
   return (
-    <div className="ride">
+    <div className="ride" onPointerDown={revealHud}>
       <RideMap fix={fix} />
 
-      <div className="ride__hud ride__hud--top">
+      <div className={`ride__hud ride__hud--top${hidden}`}>
         <button className="pill-btn" onClick={stop} aria-label="End ride">
           ✕
         </button>
@@ -94,7 +112,7 @@ export function Ride() {
         </div>
       </div>
 
-      <div className="ride__hud ride__hud--bottom">
+      <div className={`ride__hud ride__hud--bottom${hidden}`}>
         <div className="hud-card hud-card--coins">
           <div className="coin-pops">
             {pops.map((p) => (
