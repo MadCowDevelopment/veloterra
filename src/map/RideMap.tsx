@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react'
 import maplibregl, { Map as MlMap, Marker } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { cellToLatLng } from 'h3-js'
+import { cellToLatLng, getResolution } from 'h3-js'
 import type { GeoFix } from '../hooks/useGeolocation'
 import { useExplored } from '../state/explored'
 import { usePrefs } from '../state/prefs'
 import { styleUrl } from './styles'
 import { buildFog } from '../lib/fog'
+import { HEX_RES } from '../domain/economy'
 
 interface Props {
   fix: GeoFix | null
@@ -36,6 +37,7 @@ export function RideMap({ fix }: Props) {
 
     const inView: string[] = []
     for (const h3 of useExplored.getState().cells.keys()) {
+      if (getResolution(h3) !== HEX_RES) continue // ignore cells from another resolution
       const [lat, lng] = cellToLatLng(h3)
       if (lat >= s && lat <= n && lng >= w && lng <= e) inView.push(h3)
     }

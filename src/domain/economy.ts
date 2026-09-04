@@ -1,7 +1,7 @@
 // Coin economy + exploration tuning. All balancing constants live here.
 
-/** H3 resolution for exploration cells (~24 m edge, ~2150 m² per hex). */
-export const HEX_RES = 11
+/** H3 resolution for exploration cells (~9 m edge, ~19 m across, ~307 m² per hex). */
+export const HEX_RES = 12
 
 /** How many rings of neighbours around the current cell to reveal per fix. */
 export const REVEAL_K = 1

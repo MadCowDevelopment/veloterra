@@ -8,6 +8,7 @@ interface WalletState {
   add: (coins: number) => void
   addDistance: (meters: number) => void
   finishRide: () => void
+  reset: () => void
 }
 
 // Foundation for the coin economy. In M0 the balance starts at 0;
@@ -21,6 +22,7 @@ export const useWallet = create<WalletState>()(
       add: (coins) => set((s) => ({ balance: s.balance + coins })),
       addDistance: (meters) => set((s) => ({ totalDistanceM: s.totalDistanceM + meters })),
       finishRide: () => set((s) => ({ ridesCount: s.ridesCount + 1 })),
+      reset: () => set({ balance: 0, totalDistanceM: 0, ridesCount: 0 }),
     }),
     { name: 'veloterra-wallet' },
   ),
