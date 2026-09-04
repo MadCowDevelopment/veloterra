@@ -44,7 +44,7 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               cacheName: 'basemap-openfreemap',
-              expiration: { maxEntries: 5000, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              expiration: { maxEntries: 60000, maxAgeSeconds: 60 * 60 * 24 * 365 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },

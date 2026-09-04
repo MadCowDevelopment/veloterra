@@ -38,6 +38,9 @@ export function Menu() {
           <Link to="/wallet" className="btn btn--ghost">
             Wallet
           </Link>
+          <Link to="/offline" className="btn btn--ghost">
+            Offline
+          </Link>
           <Link to="/settings" className="btn btn--ghost">
             Settings
           </Link>
