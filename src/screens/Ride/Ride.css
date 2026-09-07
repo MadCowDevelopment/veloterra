@@ -265,17 +265,64 @@
   }
 }
 
-.stop-btn {
-  height: 60px;
+.ride__hint {
+  align-self: center;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+}
+
+.start-btn,
+.pause-btn,
+.resume-btn,
+.finish-btn {
+  height: 64px;
   border-radius: var(--radius);
   border: none;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 800;
+}
+
+.start-btn,
+.resume-btn {
+  color: #04140f;
+  background: var(--accent-grad);
+  box-shadow: var(--glow), 0 8px 24px rgba(34, 227, 196, 0.25);
+}
+
+.start-btn:disabled {
+  opacity: 0.5;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.pause-btn {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  backdrop-filter: blur(12px);
+}
+
+.finish-btn {
   color: #fff;
   background: linear-gradient(135deg, #ff5470, #ff2d55);
   box-shadow: 0 8px 24px rgba(255, 45, 85, 0.3);
 }
 
-.stop-btn:active {
+.ride__pauserow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.start-btn:active,
+.pause-btn:active,
+.resume-btn:active,
+.finish-btn:active {
   transform: scale(0.98);
 }

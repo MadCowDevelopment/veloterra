@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useWallet } from '../../state/wallet'
 import { formatDistance } from '../../lib/geo'
+import { CoinAmount } from '../../components/CoinAmount'
 import './Menu.css'
 
 export function Menu() {
@@ -14,9 +15,7 @@ export function Menu() {
 
       <header className="menu__top">
         <div className="coin-chip">
-          <span className="coin-chip__dot" />
-          {balance.toLocaleString()}
-          <span className="coin-chip__label">coins</span>
+          <CoinAmount copper={balance} size="sm" />
         </div>
       </header>
 

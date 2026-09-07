@@ -1,6 +1,7 @@
 import { SubPage } from '../../components/SubPage'
 import { useWallet } from '../../state/wallet'
 import { formatDistance } from '../../lib/geo'
+import { CoinAmount } from '../../components/CoinAmount'
 
 export function Wallet() {
   const balance = useWallet((s) => s.balance)
@@ -10,10 +11,10 @@ export function Wallet() {
   return (
     <SubPage title="Wallet">
       <div className="card" style={{ textAlign: 'center', marginBottom: 16 }}>
-        <div style={{ fontSize: 48, fontWeight: 800, color: 'var(--coin)' }}>
-          {balance.toLocaleString()}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+          <CoinAmount copper={balance} size="lg" />
         </div>
-        <div className="muted">coins</div>
+        <div className="muted">balance</div>
       </div>
 
       <div className="card" style={{ display: 'grid', gap: 12 }}>
@@ -22,8 +23,7 @@ export function Wallet() {
       </div>
 
       <p className="muted" style={{ marginTop: 16 }}>
-        Earning coins by uncovering the map arrives in a later milestone.{' '}
-        <span className="soon">Coming soon</span>
+        100 copper = 1 silver · 100 silver = 1 gold · 100 gold = 1 diamond.
       </p>
     </SubPage>
   )

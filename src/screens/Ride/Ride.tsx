@@ -9,7 +9,10 @@ import { useExplored } from '../../state/explored'
 import { usePrefs } from '../../state/prefs'
 import { MAP_STYLES } from '../../map/styles'
 import { MAX_ACCURACY_M } from '../../domain/economy'
+import { CoinAmount } from '../../components/CoinAmount'
 import './Ride.css'
+
+type Phase = 'idle' | 'tracking' | 'paused'
 
 interface CoinPop {
   id: number
@@ -19,21 +22,26 @@ interface CoinPop {
 export function Ride() {
   const navigate = useNavigate()
   const { fix, status } = useGeolocation({ enabled: true })
-  useWakeLock(true)
+
+  const [phase, setPhase] = useState<Phase>('idle')
+  useWakeLock(phase !== 'idle')
 
   const [distanceM, setDistanceM] = useState(0)
   const [coinsThisRide, setCoinsThisRide] = useState(0)
   const [pops, setPops] = useState<CoinPop[]>([])
-  const [startedAt] = useState(() => Date.now())
+  const [elapsedMs, setElapsedMs] = useState(0)
   const [now, setNow] = useState(Date.now())
   const [hudVisible, setHudVisible] = useState(true)
+
+  const runningSince = useRef<number | null>(null)
   const lastPoint = useRef<LngLat | null>(null)
   const popId = useRef(0)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const phaseRef = useRef<Phase>('idle')
 
   const addCoins = useWallet((s) => s.add)
   const addDistance = useWallet((s) => s.addDistance)
-  const finishRide = useWallet((s) => s.finishRide)
+  const finishRideStat = useWallet((s) => s.finishRide)
   const loadExplored = useExplored((s) => s.load)
   const reveal = useExplored((s) => s.reveal)
 
@@ -48,9 +56,9 @@ export function Ride() {
     return () => clearInterval(id)
   }, [])
 
-  // On each fix: accumulate distance, reveal fog, award coins.
+  // Only accumulate distance, reveal fog and award coins while tracking.
   useEffect(() => {
-    if (!fix || fix.accuracy > MAX_ACCURACY_M) return
+    if (phase !== 'tracking' || !fix || fix.accuracy > MAX_ACCURACY_M) return
 
     const point = { lng: fix.lng, lat: fix.lat }
     if (lastPoint.current) {
@@ -70,40 +78,71 @@ export function Ride() {
       setPops((p) => [...p, { id, amount: coins }])
       setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 1100)
     }
-  }, [fix, reveal, addCoins, addDistance])
+  }, [fix, phase, reveal, addCoins, addDistance])
+
+  const elapsed =
+    elapsedMs + (phase === 'tracking' && runningSince.current ? now - runningSince.current : 0)
 
   const speedKmh = useMemo(() => {
-    if (fix?.speed != null && fix.speed >= 0) return fix.speed * 3.6
+    if (phase === 'tracking' && fix?.speed != null && fix.speed >= 0) return fix.speed * 3.6
     return 0
-  }, [fix])
+  }, [fix, phase])
 
-  // Keep the map the focus: reveal the HUD on tap, fade it after a few seconds.
+  // Keep the map the focus: reveal the HUD on tap, fade it only while tracking.
   const revealHud = () => {
     setHudVisible(true)
     if (hideTimer.current) clearTimeout(hideTimer.current)
-    hideTimer.current = setTimeout(() => setHudVisible(false), 4000)
+    if (phaseRef.current === 'tracking') {
+      hideTimer.current = setTimeout(() => setHudVisible(false), 4000)
+    }
   }
 
   useEffect(() => {
+    phaseRef.current = phase
     revealHud()
-    return () => {
-      if (hideTimer.current) clearTimeout(hideTimer.current)
-    }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
 
-  const stop = () => {
-    finishRide()
+  useEffect(
+    () => () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current)
+    },
+    [],
+  )
+
+  const start = () => {
+    runningSince.current = Date.now()
+    lastPoint.current = null
+    setPhase('tracking')
+  }
+
+  const pause = () => {
+    const since = runningSince.current
+    if (since) setElapsedMs((e) => e + (Date.now() - since))
+    runningSince.current = null
+    setPhase('paused')
+  }
+
+  const resume = () => {
+    runningSince.current = Date.now()
+    lastPoint.current = null // don't count the gap while paused
+    setPhase('tracking')
+  }
+
+  const leave = () => {
+    if (phase !== 'idle') finishRideStat()
     navigate('/')
   }
 
   const hidden = hudVisible ? '' : ' is-hidden'
+  const gpsReady = status === 'tracking'
 
   return (
     <div className="ride" onPointerDown={revealHud}>
-      <RideMap fix={fix} />
+      <RideMap fix={fix} follow={phase === 'tracking'} />
 
       <div className={`ride__hud ride__hud--top${hidden}`}>
-        <button className="pill-btn" onClick={stop} aria-label="End ride">
+        <button className="pill-btn" onClick={leave} aria-label="Back to menu">
           ✕
         </button>
         <div className="ride__top-right">
@@ -113,38 +152,58 @@ export function Ride() {
       </div>
 
       <div className={`ride__hud ride__hud--bottom${hidden}`}>
-        <div className="hud-card hud-card--coins">
-          <div className="coin-pops">
-            {pops.map((p) => (
-              <span key={p.id} className="coin-pop">
-                +{p.amount}
-              </span>
-            ))}
-          </div>
-          <div className="hud-card__value">
-            {coinsThisRide.toLocaleString()} <span className="hud-card__coin" />
-          </div>
-          <div className="hud-card__label">Coins this ride</div>
-        </div>
+        {phase === 'idle' ? (
+          <>
+            <div className="ride__hint">Look around the map, then start your ride.</div>
+            <button className="start-btn" onClick={start} disabled={!gpsReady}>
+              {gpsReady ? 'Start Ride' : 'Getting GPS…'}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="hud-card hud-card--coins">
+              <div className="coin-pops">
+                {pops.map((p) => (
+                  <span key={p.id} className="coin-pop">
+                    +{p.amount}
+                  </span>
+                ))}
+              </div>
+              <CoinAmount copper={coinsThisRide} size="lg" />
+              <div className="hud-card__label">Earned this ride</div>
+            </div>
 
-        <div className="hud-row">
-          <div className="hud-card">
-            <div className="hud-card__value">{formatDistance(distanceM)}</div>
-            <div className="hud-card__label">Distance</div>
-          </div>
-          <div className="hud-card">
-            <div className="hud-card__value">{speedKmh.toFixed(1)}</div>
-            <div className="hud-card__label">km/h</div>
-          </div>
-          <div className="hud-card">
-            <div className="hud-card__value">{formatDuration(now - startedAt)}</div>
-            <div className="hud-card__label">Time</div>
-          </div>
-        </div>
+            <div className="hud-row">
+              <div className="hud-card">
+                <div className="hud-card__value">{formatDistance(distanceM)}</div>
+                <div className="hud-card__label">Distance</div>
+              </div>
+              <div className="hud-card">
+                <div className="hud-card__value">{speedKmh.toFixed(1)}</div>
+                <div className="hud-card__label">km/h</div>
+              </div>
+              <div className="hud-card">
+                <div className="hud-card__value">{formatDuration(elapsed)}</div>
+                <div className="hud-card__label">Time</div>
+              </div>
+            </div>
 
-        <button className="stop-btn" onClick={stop}>
-          Stop Ride
-        </button>
+            {phase === 'tracking' ? (
+              <button className="pause-btn" onClick={pause}>
+                Pause
+              </button>
+            ) : (
+              <div className="ride__pauserow">
+                <button className="resume-btn" onClick={resume}>
+                  Resume
+                </button>
+                <button className="finish-btn" onClick={leave}>
+                  Finish
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   )

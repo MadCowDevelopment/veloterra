@@ -11,14 +11,17 @@ import { HEX_RES } from '../domain/economy'
 
 interface Props {
   fix: GeoFix | null
+  follow: boolean
 }
 
-export function RideMap({ fix }: Props) {
+export function RideMap({ fix, follow }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
   const readyRef = useRef(false)
   const centeredRef = useRef(false)
+  const followRef = useRef(follow)
+  const latestFix = useRef<GeoFix | null>(null)
 
   const revision = useExplored((s) => s.revision)
   const mapStyle = usePrefs((s) => s.mapStyle)
@@ -134,20 +137,31 @@ export function RideMap({ fix }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revision])
 
-  // Follow the live position.
+  // Update the marker every fix; recenter once initially, then only while following.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !fix) return
+    latestFix.current = fix
     const lngLat: [number, number] = [fix.lng, fix.lat]
     markerRef.current?.setLngLat(lngLat)
 
     if (!centeredRef.current) {
       map.jumpTo({ center: lngLat, zoom: 16.5 })
       centeredRef.current = true
-    } else {
+    } else if (followRef.current) {
       map.easeTo({ center: lngLat, duration: 500 })
     }
   }, [fix])
+
+  // When following turns on, snap back to the rider (in case the map was panned).
+  useEffect(() => {
+    followRef.current = follow
+    const map = mapRef.current
+    const f = latestFix.current
+    if (follow && map && f) {
+      map.easeTo({ center: [f.lng, f.lat], zoom: Math.max(map.getZoom(), 16), duration: 500 })
+    }
+  }, [follow])
 
   return (
     <div className="ride-map">
