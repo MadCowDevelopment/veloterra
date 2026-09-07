@@ -10,6 +10,7 @@ import { usePrefs } from '../../state/prefs'
 import { MAP_STYLES } from '../../map/styles'
 import { MAX_ACCURACY_M } from '../../domain/economy'
 import { CoinAmount } from '../../components/CoinAmount'
+import { addRide } from '../../lib/rides'
 import './Ride.css'
 
 type Phase = 'idle' | 'tracking' | 'paused'
@@ -28,12 +29,14 @@ export function Ride() {
 
   const [distanceM, setDistanceM] = useState(0)
   const [coinsThisRide, setCoinsThisRide] = useState(0)
+  const [newCellsThisRide, setNewCellsThisRide] = useState(0)
   const [pops, setPops] = useState<CoinPop[]>([])
   const [elapsedMs, setElapsedMs] = useState(0)
   const [now, setNow] = useState(Date.now())
   const [hudVisible, setHudVisible] = useState(true)
 
   const runningSince = useRef<number | null>(null)
+  const startedAt = useRef<number>(0)
   const lastPoint = useRef<LngLat | null>(null)
   const popId = useRef(0)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -70,7 +73,8 @@ export function Ride() {
     }
     lastPoint.current = point
 
-    const { coins } = reveal(fix)
+    const { coins, newCells } = reveal(fix)
+    if (newCells > 0) setNewCellsThisRide((n) => n + newCells)
     if (coins > 0) {
       addCoins(coins)
       setCoinsThisRide((c) => c + coins)
@@ -111,6 +115,7 @@ export function Ride() {
   )
 
   const start = () => {
+    startedAt.current = Date.now()
     runningSince.current = Date.now()
     lastPoint.current = null
     setPhase('tracking')
@@ -129,8 +134,22 @@ export function Ride() {
     setPhase('tracking')
   }
 
-  const leave = () => {
-    if (phase !== 'idle') finishRideStat()
+  const leave = async () => {
+    if (phase !== 'idle') {
+      const durationMs =
+        elapsedMs + (runningSince.current ? Date.now() - runningSince.current : 0)
+      finishRideStat()
+      const id = await addRide({
+        startedAt: startedAt.current,
+        endedAt: Date.now(),
+        durationMs,
+        distanceM,
+        coins: coinsThisRide,
+        newCells: newCellsThisRide,
+      })
+      navigate(`/rides/${id}`)
+      return
+    }
     navigate('/')
   }
 

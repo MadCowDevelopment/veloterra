@@ -46,6 +46,12 @@
   backdrop-filter: blur(12px);
 }
 
+.card__title {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
 .muted {
   color: var(--text-dim);
   line-height: 1.6;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { SubPage } from '../../components/SubPage'
 import { db } from '../../data/db'
+import { clearRides } from '../../lib/rides'
 import { useWallet } from '../../state/wallet'
 import { useExplored } from '../../state/explored'
 
@@ -24,6 +25,7 @@ export function Settings() {
   const doReset = async () => {
     if (!canReset) return
     await resetExplored()
+    await clearRides()
     resetWallet()
     setCount(0)
     setConfirming(false)
@@ -34,15 +36,15 @@ export function Settings() {
   return (
     <SubPage title="Settings">
       <div className="card">
+        <div className="card__title">Offline maps</div>
         <p className="muted" style={{ marginTop: 0 }}>
-          <Link to="/offline" style={{ color: 'var(--accent)', fontWeight: 700 }}>
-            Offline maps →
-          </Link>
+          Download map areas so you can ride with no internet. Areas you pass through while
+          online are also cached automatically, and you can manage or delete saved areas any
+          time.
         </p>
-        <p className="muted" style={{ marginBottom: 0 }}>
-          Units and fog reveal radius will live here.{' '}
-          <span className="soon">Coming soon</span>
-        </p>
+        <Link to="/offline" className="btn btn--primary" style={{ width: '100%' }}>
+          Manage offline maps
+        </Link>
       </div>
 
       <div className="danger">
