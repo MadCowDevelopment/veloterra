@@ -38,6 +38,8 @@ export function Ride() {
   const runningSince = useRef<number | null>(null)
   const startedAt = useRef<number>(0)
   const lastPoint = useRef<LngLat | null>(null)
+  const path = useRef<[number, number][]>([])
+  const maxSpeed = useRef(0)
   const popId = useRef(0)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const phaseRef = useRef<Phase>('idle')
@@ -64,12 +66,19 @@ export function Ride() {
     if (phase !== 'tracking' || !fix || fix.accuracy > MAX_ACCURACY_M) return
 
     const point = { lng: fix.lng, lat: fix.lat }
+    if (fix.speed != null && fix.speed >= 0) {
+      const kmh = fix.speed * 3.6
+      if (kmh > maxSpeed.current) maxSpeed.current = kmh
+    }
     if (lastPoint.current) {
       const step = haversine(lastPoint.current, point)
       if (step >= 3 && step < 300) {
         setDistanceM((d) => d + step)
         addDistance(step)
+        path.current.push([point.lng, point.lat])
       }
+    } else {
+      path.current.push([point.lng, point.lat]) // first point of a segment
     }
     lastPoint.current = point
 
@@ -118,6 +127,8 @@ export function Ride() {
     startedAt.current = Date.now()
     runningSince.current = Date.now()
     lastPoint.current = null
+    path.current = []
+    maxSpeed.current = 0
     setPhase('tracking')
   }
 
@@ -146,6 +157,8 @@ export function Ride() {
         distanceM,
         coins: coinsThisRide,
         newCells: newCellsThisRide,
+        path: path.current,
+        maxSpeedKmh: Math.round(maxSpeed.current * 10) / 10,
       })
       navigate(`/rides/${id}`)
       return

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { SubPage } from '../../components/SubPage'
 import { CoinAmount } from '../../components/CoinAmount'
+import { RouteMap } from '../../map/RouteMap'
 import { getRide } from '../../lib/rides'
 import { formatDistance, formatDuration } from '../../lib/geo'
 import type { RideRow } from '../../data/db'
@@ -24,6 +25,8 @@ export function RideSummary() {
         <>
           <div className="ride-date">{new Date(ride.startedAt).toLocaleString()}</div>
 
+          {ride.path && ride.path.length >= 2 && <RouteMap path={ride.path} />}
+
           <div className="summary-grid">
             <div className="summary-cell">
               <div className="summary-cell__value">{formatDistance(ride.distanceM)}</div>
@@ -32,6 +35,14 @@ export function RideSummary() {
             <div className="summary-cell">
               <div className="summary-cell__value">{formatDuration(ride.durationMs)}</div>
               <div className="summary-cell__label">Duration</div>
+            </div>
+            <div className="summary-cell">
+              <div className="summary-cell__value">{avgSpeed(ride).toFixed(1)}</div>
+              <div className="summary-cell__label">Avg km/h</div>
+            </div>
+            <div className="summary-cell">
+              <div className="summary-cell__value">{(ride.maxSpeedKmh ?? 0).toFixed(1)}</div>
+              <div className="summary-cell__label">Max km/h</div>
             </div>
             <div className="summary-cell">
               <div className="summary-cell__value">{ride.newCells.toLocaleString()}</div>
@@ -50,4 +61,9 @@ export function RideSummary() {
       )}
     </SubPage>
   )
+}
+
+function avgSpeed(ride: RideRow): number {
+  if (ride.durationMs <= 0) return 0
+  return (ride.distanceM / (ride.durationMs / 1000)) * 3.6
 }

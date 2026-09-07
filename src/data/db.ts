@@ -27,6 +27,8 @@ export interface RideRow {
   distanceM: number
   coins: number // copper earned this ride
   newCells: number // tiles first revealed this ride
+  path?: [number, number][] // [lng, lat] track, downsampled
+  maxSpeedKmh?: number
 }
 
 class VeloDB extends Dexie {

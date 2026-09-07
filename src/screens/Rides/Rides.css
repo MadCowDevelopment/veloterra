@@ -4,6 +4,14 @@
   margin-bottom: 16px;
 }
 
+.route-map {
+  height: 240px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
