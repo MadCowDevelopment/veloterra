@@ -12,6 +12,7 @@
     "generate-icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "dexie": "^4.4.5",
     "h3-js": "^4.5.0",
     "maplibre-gl": "^4.7.1",

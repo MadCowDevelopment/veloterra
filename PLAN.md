@@ -321,9 +321,60 @@ Bike/
 - Design + build the coin-spending mini-game against the wallet API.
 
 ### Future — Cloud/social
-- Optional account + sync (explored cells, wallet), shared/competitive maps.
+- Optional account + sync (explored cells, wallet, rides), shared/competitive maps.
 - Architecture keeps persistence behind a repository layer so a sync backend can be added
-  without rewriting domain logic.
+  without rewriting domain logic. See the Cloud Sync section below for the chosen approach.
+
+### Future — Cloud sync (zero-cost)
+**Goal:** back up + sync progress (explored cells, wallet, rides) across devices at **zero
+cost to us**, keeping the app offline-first. A static PWA can talk directly to a
+Backend-as-a-Service, so **we never run or pay for a server**.
+
+**Model:** IndexedDB stays the source of truth during a ride. We sync a **compact snapshot**
+(explored cells as one blob, wallet, rides as rows) on ride finish / app background /
+periodically — not a live DB read/write path. So a **thin custom sync layer** is written
+either way, which narrows the practical differences between providers.
+
+**Merge strategy (offline-first, multi-device):**
+- Explored cells → **union** (never lose exploration from another device).
+- Rides → insert by **id** (idempotent).
+- Wallet → ideally **derive from rides/ledger** (earned − spent) so two devices can't
+  clobber the balance; simple last-write-wins until the spend-game exists.
+
+**Provider decision — default: Supabase.** Both Supabase and Firebase are valid, zero-cost,
+no-server-of-ours, with built-in auth. Start with **anonymous auth** (instant, no login),
+add "link Google/GitHub" later so progress follows across devices.
+
+| | Supabase (default) | Firebase (Firestore) |
+|---|---|---|
+| Data model | Postgres + **SQL** (joins, aggregates) | NoSQL documents |
+| Leaderboards/social | Easier (SQL: rank/aggregate in one query) | Capable (top-N + `count()`; denormalize; keep client-side to avoid Cloud Functions/Blaze) |
+| Offline | Not built-in — our snapshot sync, or a lib (PowerSync/RxDB/Legend-State) | **Transparent offline in the SDK** (zero code) |
+| Free-tier pausing | Pauses ~1 week idle (auto-resumes; moot with weekly rides) | **Never pauses** |
+| Pricing model | By DB size/egress (predictable; blob sync = few writes) | Per operation (batch writes) |
+| Lock-in | Open source, standard Postgres, portable | Google-proprietary |
+
+**Why Supabase as default:** since we do our own snapshot sync regardless, Firestore's
+built-in-offline edge largely neutralizes, leaving Supabase's **SQL leaderboards + no
+lock-in + predictable free tier** as the tiebreakers. Switch to **Firebase** if we later
+prefer never-pauses + zero sync code and accept NoSQL/lock-in.
+
+**Caveats:** Firebase Cloud Functions now require the Blaze plan (card on file) — design
+leaderboards as **client queries** to stay on the free Spark plan. Supabase free projects
+pause after ~1 week idle but auto-resume.
+
+### Future — Background tracking (optional "Pro" build)
+**Decision:** stay a pure PWA for now (foreground + Wake Lock, screen-on). No APK.
+A pure PWA **cannot** track GPS with the screen off/backgrounded — the browser freezes
+JS and stops `watchPosition`, service workers can't read geolocation, and Periodic
+Background Sync is far too infrequent. TWA/Bubblewrap does **not** help (still Chrome).
+- **If wanted later:** wrap the *same* web codebase with **Capacitor** + a
+  **background-geolocation plugin** (runs an Android foreground service with a persistent
+  notification). The `useGeolocation` hook already abstracts the source, so only that
+  layer changes.
+- **Avoids the pain points:** no Play Store (sideload the APK), and no local Android
+  tooling (build the APK in GitHub Actions and download the artifact).
+- Ship it as an optional install alongside the normal PWA URL.
 
 ---
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { SubPage } from '../../components/SubPage'
+import { AccountCard } from '../../components/AccountCard'
 import { db } from '../../data/db'
 import { clearRides } from '../../lib/rides'
 import { useWallet } from '../../state/wallet'
@@ -35,6 +36,8 @@ export function Settings() {
 
   return (
     <SubPage title="Settings">
+      <AccountCard />
+
       <div className="card">
         <div className="card__title">Offline maps</div>
         <p className="muted" style={{ marginTop: 0 }}>

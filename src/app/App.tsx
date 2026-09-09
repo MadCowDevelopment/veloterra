@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Menu } from '../screens/Menu/Menu'
 import { Ride } from '../screens/Ride/Ride'
@@ -6,8 +7,13 @@ import { Settings } from '../screens/Settings/Settings'
 import { Offline } from '../screens/Offline/Offline'
 import { RidesHistory } from '../screens/Rides/RidesHistory'
 import { RideSummary } from '../screens/Rides/RideSummary'
+import { useAuth } from '../state/auth'
 
 export function App() {
+  useEffect(() => {
+    useAuth.getState().init()
+  }, [])
+
   return (
     <Routes>
       <Route path="/" element={<Menu />} />
