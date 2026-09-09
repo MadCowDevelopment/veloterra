@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { copyFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 // App is served from https://<user>.github.io/veloterra/ on GitHub Pages.
 const base = '/veloterra/'
@@ -52,5 +54,13 @@ export default defineConfig({
       },
       devOptions: { enabled: false },
     }),
+    // GitHub Pages has no SPA rewrite; serve index.html for unknown deep links.
+    {
+      name: 'spa-404-fallback',
+      writeBundle(options) {
+        const dir = options.dir ?? 'dist'
+        copyFileSync(resolve(dir, 'index.html'), resolve(dir, '404.html'))
+      },
+    },
   ],
 })
