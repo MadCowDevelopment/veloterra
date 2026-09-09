@@ -52,6 +52,12 @@
   margin-bottom: 8px;
 }
 
+/* Uniform button height for all action buttons inside settings cards. */
+.card .btn {
+  height: 52px;
+  font-size: 15px;
+}
+
 .muted {
   color: var(--text-dim);
   line-height: 1.6;
