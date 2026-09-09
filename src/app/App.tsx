@@ -8,11 +8,25 @@ import { Offline } from '../screens/Offline/Offline'
 import { RidesHistory } from '../screens/Rides/RidesHistory'
 import { RideSummary } from '../screens/Rides/RideSummary'
 import { useAuth } from '../state/auth'
+import { syncNow } from '../lib/sync'
 
 export function App() {
+  const user = useAuth((s) => s.user)
+
   useEffect(() => {
     useAuth.getState().init()
   }, [])
+
+  // Sync when a signed-in user is present and when the tab regains focus.
+  useEffect(() => {
+    if (!user) return
+    syncNow()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') syncNow()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [user])
 
   return (
     <Routes>

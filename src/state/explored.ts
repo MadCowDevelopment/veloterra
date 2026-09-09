@@ -22,6 +22,7 @@ interface ExploredState {
   load: () => Promise<void>
   reveal: (fix: GeoFix) => RevealResult
   reset: () => Promise<void>
+  reload: () => Promise<void>
 }
 
 // The in-memory cell map is mutated in place for performance; `revision` signals
@@ -86,5 +87,12 @@ export const useExplored = create<ExploredState>((set, get) => ({
     await db.cells.clear()
     get().cells.clear()
     set({ revision: get().revision + 1 })
+  },
+
+  reload: async () => {
+    const rows = await db.cells.toArray()
+    const map = new Map<string, CellRow>()
+    for (const r of rows) map.set(r.h3, r)
+    set({ cells: map, loaded: true, revision: get().revision + 1 })
   },
 }))

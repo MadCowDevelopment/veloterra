@@ -11,6 +11,7 @@ import { MAP_STYLES } from '../../map/styles'
 import { MAX_ACCURACY_M } from '../../domain/economy'
 import { CoinAmount } from '../../components/CoinAmount'
 import { addRide } from '../../lib/rides'
+import { syncNow } from '../../lib/sync'
 import './Ride.css'
 
 type Phase = 'idle' | 'tracking' | 'paused'
@@ -160,6 +161,7 @@ export function Ride() {
         path: path.current,
         maxSpeedKmh: Math.round(maxSpeed.current * 10) / 10,
       })
+      syncNow() // push this ride if signed in (no-op otherwise)
       navigate(`/rides/${id}`)
       return
     }

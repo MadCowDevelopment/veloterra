@@ -27,3 +27,34 @@
 .google-btn svg {
   flex: none;
 }
+
+.sync-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sync-line__text {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.sync-line__text.is-error {
+  color: #ff9aa5;
+}
+
+.sync-line__btn {
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sync-line__btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}

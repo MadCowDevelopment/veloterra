@@ -1,4 +1,5 @@
 import { useAuth } from '../state/auth'
+import { useSync, syncNow } from '../lib/sync'
 import './AccountCard.css'
 
 function GoogleLogo() {
@@ -43,11 +44,37 @@ export function AccountCard() {
             Signed in{user.email ? <> as <strong>{user.email}</strong></> : ''}. Your
             progress is backed up.
           </p>
+          <SyncLine />
           <button className="btn btn--ghost" style={{ width: '100%' }} onClick={signOut}>
             Sign out
           </button>
         </>
       )}
+    </div>
+  )
+}
+
+function SyncLine() {
+  const status = useSync((s) => s.status)
+  const lastSyncedAt = useSync((s) => s.lastSyncedAt)
+  const label =
+    status === 'syncing'
+      ? 'Syncing…'
+      : status === 'error'
+        ? 'Sync failed — will retry'
+        : lastSyncedAt
+          ? `Synced ✓ ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          : 'Not synced yet'
+  return (
+    <div className="sync-line">
+      <span className={`sync-line__text ${status === 'error' ? 'is-error' : ''}`}>{label}</span>
+      <button
+        className="sync-line__btn"
+        onClick={() => syncNow()}
+        disabled={status === 'syncing'}
+      >
+        Sync now
+      </button>
     </div>
   )
 }
