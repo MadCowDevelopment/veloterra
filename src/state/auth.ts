@@ -6,16 +6,17 @@ import { supabase } from '../lib/supabase'
 const redirectTo = window.location.origin + import.meta.env.BASE_URL
 
 interface AuthState {
-  user: User | null
+  user: User | null // a real (non-anonymous) signed-in user
   ready: boolean
   init: () => void
   signInGoogle: () => Promise<void>
-  signInGuest: () => Promise<string | null>
-  linkGoogle: () => Promise<void>
   signOut: () => Promise<void>
 }
 
 let initialized = false
+
+// Anonymous sessions are treated as "not signed in" — signed-out = device-local.
+const realUser = (u: User | null | undefined) => (u && !u.is_anonymous ? u : null)
 
 export const useAuth = create<AuthState>((set) => ({
   user: null,
@@ -26,23 +27,14 @@ export const useAuth = create<AuthState>((set) => ({
     initialized = true
     supabase.auth
       .getSession()
-      .then(({ data }) => set({ user: data.session?.user ?? null, ready: true }))
+      .then(({ data }) => set({ user: realUser(data.session?.user), ready: true }))
     supabase.auth.onAuthStateChange((_event, session) =>
-      set({ user: session?.user ?? null, ready: true }),
+      set({ user: realUser(session?.user), ready: true }),
     )
   },
 
   signInGoogle: async () => {
     await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
-  },
-
-  signInGuest: async () => {
-    const { error } = await supabase.auth.signInAnonymously()
-    return error?.message ?? null
-  },
-
-  linkGoogle: async () => {
-    await supabase.auth.linkIdentity({ provider: 'google', options: { redirectTo } })
   },
 
   signOut: async () => {
