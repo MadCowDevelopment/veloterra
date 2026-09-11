@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { latLngToCell, gridDisk } from 'h3-js'
+import { cellToParent, getResolution, gridDisk, latLngToCell } from 'h3-js'
 import { db, type CellRow } from '../data/db'
 import {
   HEX_RES,
@@ -15,11 +15,38 @@ export interface RevealResult {
   newCells: number
 }
 
+async function migrateLegacyCells(): Promise<boolean> {
+  const rows = await db.cells.toArray()
+  const legacyRows = rows.filter((row) => getResolution(row.h3) > HEX_RES)
+  if (!legacyRows.length) return false
+
+  const migrated = new Map<string, CellRow>()
+  for (const row of rows) {
+    const h3 = getResolution(row.h3) > HEX_RES ? cellToParent(row.h3, HEX_RES) : row.h3
+    const existing = migrated.get(h3)
+    if (!existing) {
+      migrated.set(h3, { ...row, h3 })
+      continue
+    }
+    existing.firstVisited = Math.min(existing.firstVisited, row.firstVisited)
+    existing.lastVisited = Math.max(existing.lastVisited, row.lastVisited)
+    existing.visits += row.visits
+    existing.coins += row.coins
+  }
+
+  await db.transaction('rw', db.cells, async () => {
+    await db.cells.clear()
+    await db.cells.bulkPut([...migrated.values()])
+  })
+  return true
+}
+
 interface ExploredState {
   cells: Map<string, CellRow>
   revision: number // bumps only when the explored geometry changes (new cells)
   loaded: boolean
   load: () => Promise<void>
+  migrate: () => Promise<boolean>
   reveal: (fix: GeoFix) => RevealResult
   reset: () => Promise<void>
   reload: () => Promise<void>
@@ -34,10 +61,18 @@ export const useExplored = create<ExploredState>((set, get) => ({
 
   load: async () => {
     if (get().loaded) return
+    await get().migrate()
+    if (get().loaded) return
     const rows = await db.cells.toArray()
     const map = new Map<string, CellRow>()
     for (const r of rows) map.set(r.h3, r)
     set({ cells: map, loaded: true, revision: get().revision + 1 })
+  },
+
+  migrate: async () => {
+    if (!await migrateLegacyCells()) return false
+    await get().reload()
+    return true
   },
 
   reveal: (fix) => {

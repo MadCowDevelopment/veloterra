@@ -1,4 +1,4 @@
-import { cellsToMultiPolygon } from 'h3-js'
+import { cellsToMultiPolygon, gridDisk } from 'h3-js'
 import type { Feature, FeatureCollection, Polygon } from 'geojson'
 
 // A rectangle covering the whole web-mercator range; the fog fills this and the
@@ -18,16 +18,46 @@ function closeLoop(loop: number[][]): number[][] {
   return fx === lx && fy === ly ? loop : [...loop, loop[0]]
 }
 
+function containsPoint(ring: number[][], [x, y]: number[]): boolean {
+  let inside = false
+  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
+    const [xi, yi] = ring[index]
+    const [xj, yj] = ring[previous]
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+
 export interface FogGeometry {
   fill: FeatureCollection
   edges: FeatureCollection
 }
 
+/** Return one-cell gaps surrounded by at least five directly explored neighbours. */
+export function completeSmallGaps(cells: Iterable<string>): string[] {
+  const explored = new Set(cells)
+  const candidates = new Set<string>()
+  for (const h3 of explored) {
+    for (const neighbour of gridDisk(h3, 1)) candidates.add(neighbour)
+  }
+
+  const completed: string[] = []
+  for (const candidate of candidates) {
+    if (explored.has(candidate)) continue
+    const exploredNeighbours = gridDisk(candidate, 1).filter(
+      (neighbour) => neighbour !== candidate && explored.has(neighbour),
+    ).length
+    if (exploredNeighbours >= 5) completed.push(candidate)
+  }
+  return completed
+}
+
 /**
  * Build the fog polygon (world minus explored cells) plus the glowing frontier
- * lines. `cells` should already be filtered to the current viewport.
+ * lines. `cells` should already be filtered to the current viewport. Completed
+ * road blocks are cut out of the fog and rendered separately as semi-revealed.
  */
-export function buildFog(cells: string[]): FogGeometry {
+export function buildFog(cells: string[], completedBlocks: Polygon[] = []): FogGeometry {
   const fillFeatures: Feature[] = []
   const edgeFeatures: Feature[] = []
 
@@ -60,14 +90,19 @@ export function buildFog(cells: string[]): FogGeometry {
         holes.push(ring)
       } else {
         // Unexplored pocket inside an explored region → re-cover with fog.
+        const completedInside = completedBlocks
+          .map((block) => closeLoop(block.coordinates[0]))
+          .filter((block) => containsPoint(ring, block[0]))
         fillFeatures.push({
           type: 'Feature',
           properties: {},
-          geometry: { type: 'Polygon', coordinates: [ring] } as Polygon,
+          geometry: { type: 'Polygon', coordinates: [ring, ...completedInside] } as Polygon,
         })
       }
     })
   }
+
+  for (const block of completedBlocks) holes.push(closeLoop(block.coordinates[0]))
 
   fillFeatures.unshift({
     type: 'Feature',

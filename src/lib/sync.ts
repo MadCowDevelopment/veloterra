@@ -1,9 +1,11 @@
 import { create } from 'zustand'
+import { cellToParent, getResolution } from 'h3-js'
 import { supabase } from './supabase'
 import { db, type RideRow } from '../data/db'
 import { useWallet } from '../state/wallet'
 import { useExplored } from '../state/explored'
 import { useAuth } from '../state/auth'
+import { HEX_RES } from '../domain/economy'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error'
 
@@ -55,6 +57,10 @@ function rowToRide(x: RideCloudRow): RideRow {
 
 let running = false
 
+function migrateH3(h3: string): string {
+  return getResolution(h3) > HEX_RES ? cellToParent(h3, HEX_RES) : h3
+}
+
 /** Two-way merge of local (IndexedDB) and cloud (Supabase) progress. No-op when signed out. */
 export async function syncNow(): Promise<void> {
   const user = useAuth.getState().user
@@ -64,6 +70,7 @@ export async function syncNow(): Promise<void> {
   try {
     const uid = user.id
     const nowIso = new Date().toISOString()
+    await useExplored.getState().migrate()
 
     // --- Explored cells: union of h3 sets ---
     const localCells = await db.cells.toArray()
@@ -73,7 +80,7 @@ export async function syncNow(): Promise<void> {
       .select('cells')
       .eq('user_id', uid)
       .maybeSingle()
-    const cloudCells: string[] = (exp?.cells as string[]) ?? []
+    const cloudCells = ((exp?.cells as string[]) ?? []).map(migrateH3)
     const now = Date.now()
     const missing = cloudCells.filter((h3) => !cellSet.has(h3))
     for (const h3 of missing) cellSet.add(h3)
