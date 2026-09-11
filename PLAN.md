@@ -1,4 +1,4 @@
-# Bike Fog-of-War Explorer — Project Plan
+# Veloterra — Project Plan
 
 > A mobile web app (PWA) for exploring the real world by bike. The map starts hidden
 > under a "fog of war". As you ride, the area around you is revealed and you earn coins.
@@ -74,8 +74,12 @@ Each hexagon is one "tile of the world". This gives us, for free:
 - Efficient storage (store a set of hex IDs, not a point cloud).
 - Easy fog rendering (fill the world dark, punch holes where hexes are explored).
 
-Suggested resolution: **H3 res 10** (~65 m edge, ~0.015 km² per hex) as a starting point —
-tune later for how "chunky" the reveal feels.
+Initial prototype resolution: **H3 res 10** (~65 m edge, ~0.015 km² per hex). Real-ride
+testing showed that the revealed route becomes a set of tiny lines as soon as the map is
+zoomed out, so the cell size and/or reveal radius must be revisited. Compare coarser H3
+resolutions and wider reveal neighborhoods at several zoom levels before fixing the
+default. The goal is a satisfying, legible explored area without awarding huge regions
+for a short ride.
 
 ---
 
@@ -191,6 +195,19 @@ the edges later for a nicer look.
 Only the fog for the **current viewport** needs to be materialized — query explored cells
 by the visible bounding box to keep it fast even after months of riding.
 
+### Exploration behavior to refine
+- **Zoom-level legibility:** explored territory should remain visibly meaningful when
+  zoomed out, not collapse into tiny road-width lines. Test coarser H3 cells, a larger
+  reveal radius, and zoom-dependent rendering before choosing the final model. Rewards
+  must continue to use one stable underlying grid even if rendering is generalized at
+  lower zoom levels.
+- **Completed-area reveal:** investigate automatically uncovering an unexplored pocket
+  when the surrounding area has been fully explored. The completion rule still needs a
+  prototype: a simple enclosed-cell/flood-fill rule may work for geometric pockets,
+  while "all roads in this area were explored" may require access to the basemap road
+  graph. Any automatic fill should be visually identified and should not grant the same
+  coins as directly ridden cells until its economy impact is decided.
+
 ---
 
 ## 8. Offline Maps — the important part
@@ -225,11 +242,21 @@ regions as you travel.
   - `Map` (browse explored world without tracking).
   - `Settings` (units, reveal radius, offline map downloads).
   - `Game` (later) — spend coins.
-- **Ride** — fullscreen map, live position marker, fog, live stats (distance, coins this
-  ride, speed), a **map-style switcher** (Dark / Light / etc., swappable live without
-  losing the fog or your position), and a **Stop** button. Screen kept awake via Wake Lock.
+- **Ride** — fullscreen map, directional position marker, fog, live stats (distance,
+  coins this ride, speed), a **map-style switcher** (Dark / Light / etc., swappable live
+  without losing the fog or your position), a camera-orientation control, and a **Stop**
+  button. Screen kept awake via Wake Lock.
 - **Wallet** — balance, ledger, list of past rides.
 - **Game** (later) — separate module; only consumes the wallet API.
+
+### Ride map navigation
+- Replace the circular user marker with an **arrow/chevron that shows travel heading** at
+  a glance. Prefer the GPS heading while moving; fall back to the bearing between recent
+  reliable positions when heading is unavailable. At low speed, retain the last reliable
+  heading rather than letting GPS noise spin the marker.
+- Offer a persistent **north-up / heading-up** map option. In heading-up mode, rotate the
+  camera so the user's travel direction stays at the top, as in navigation apps. Keep the
+  control easy to reach and clearly show when the map is no longer north-up.
 
 ### Look & feel (design language)
 The app should feel **cool and professional**, not like a dev demo. Target vibe:
@@ -297,13 +324,17 @@ Bike/
 
 ### Milestone 1 — Live map + position
 - MapLibre map rendering (online tiles first to get moving).
-- Geolocation `watchPosition`, live position marker, follow-me camera.
+- Geolocation `watchPosition`, directional live-position marker, follow-me camera.
+- North-up / heading-up camera modes with stable heading behavior at low speed.
 - Wake Lock during ride; Start/Stop ride flow.
 
 ### Milestone 2 — Fog of war + exploration
 - H3 conversion of positions, reveal radius, explored-cell set.
+- Ride-test and select a legible cell size/reveal width across useful zoom levels.
 - Fog fill layer with holes; incremental reveal as you move.
 - Persist explored cells in IndexedDB.
+- Prototype completed-area detection for fully surrounded unexplored pockets; decide
+  whether road-network-aware detection belongs in the product.
 
 ### Milestone 3 — Coins
 - CoinEconomy (new vs revisit + cooldown), wallet + ledger.
@@ -322,6 +353,10 @@ Bike/
 
 ### Future — Cloud/social
 - Optional account + sync (explored cells, wallet, rides), shared/competitive maps.
+- Keep a **combined community map** that can display the explored areas contributed by
+  all users. It should aggregate territory rather than expose individual ride traces or
+  live locations; attribution, friend-only filters, and privacy controls can be decided
+  when social work begins.
 - Architecture keeps persistence behind a repository layer so a sync backend can be added
   without rewriting domain logic. See the Cloud Sync section below for the chosen approach.
 
@@ -393,17 +428,14 @@ Background Sync is far too infrequent. TWA/Bubblewrap does **not** help (still C
 
 ## 13. Open Questions (for later, not blocking)
 
-1. **Region:** which city/area should the first offline map cover?
-2. **Reveal feel:** how big should the revealed ribbon be (radius in meters)?
+1. **Region:** which city/area should the first offline map cover? none
 3. **Economy balance:** starting coin values and revisit cooldown length.
 4. **Game direction:** town builder vs RPG vs idle — affects wallet/spend API shape.
-5. **Ride metrics:** do you want speed/elevation/time stats saved per ride?
+6. **Exploration scale:** which H3 resolution/reveal radius stays satisfying both close-up
+  and zoomed out without over-rewarding distance?
+7. **Completed areas:** should enclosure be based on surrounding explored cells, explored
+  roads, or another completion rule, and should automatically filled cells earn coins?
+8. **Social map privacy:** should the combined explored map be global, friends-only, or
+  selectable, and how much attribution should it show?
 
 ---
-
-## 14. Next Step
-
-If this looks good, the concrete first action is **Milestone 0**: scaffold the Vite +
-React + TS PWA so it installs on your phone from a URL, with a Main Menu and a working
-"Start Ride" button that opens a (for now online) map with your live position.
-```
