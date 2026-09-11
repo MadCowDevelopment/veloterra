@@ -18,6 +18,22 @@ function closeLoop(loop: number[][]): number[][] {
   return fx === lx && fy === ly ? loop : [...loop, loop[0]]
 }
 
+function signedArea(ring: number[][]): number {
+  let area = 0
+  for (let index = 1; index < ring.length; index++) {
+    const [x0, y0] = ring[index - 1]
+    const [x1, y1] = ring[index]
+    area += x0 * y1 - x1 * y0
+  }
+  return area / 2
+}
+
+function orientRing(ring: number[][], clockwise: boolean): number[][] {
+  const closed = closeLoop(ring)
+  const isClockwise = signedArea(closed) < 0
+  return isClockwise === clockwise ? closed : [...closed].reverse()
+}
+
 export interface FogGeometry {
   fill: FeatureCollection
   edges: FeatureCollection
@@ -57,13 +73,13 @@ export function buildFog(cells: string[]): FogGeometry {
       })
       if (i === 0) {
         // Outer boundary of an explored region → a hole in the fog.
-        holes.push(ring)
+        holes.push(orientRing(ring, true))
       } else {
         // Unexplored pocket inside an explored region → re-cover with fog.
         fillFeatures.push({
           type: 'Feature',
           properties: {},
-          geometry: { type: 'Polygon', coordinates: [ring] } as Polygon,
+          geometry: { type: 'Polygon', coordinates: [orientRing(ring, false)] } as Polygon,
         })
       }
     })
