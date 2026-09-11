@@ -74,12 +74,11 @@ Each hexagon is one "tile of the world". This gives us, for free:
 - Efficient storage (store a set of hex IDs, not a point cloud).
 - Easy fog rendering (fill the world dark, punch holes where hexes are explored).
 
-Initial prototype resolution: **H3 res 10** (~65 m edge, ~0.015 km² per hex). Real-ride
-testing showed that the revealed route becomes a set of tiny lines as soon as the map is
-zoomed out, so the cell size and/or reveal radius must be revisited. Compare coarser H3
-resolutions and wider reveal neighborhoods at several zoom levels before fixing the
-default. The goal is a satisfying, legible explored area without awarding huge regions
-for a short ride.
+The exploration grid uses **H3 res 11** (~28 m edge, ~50 m across, ~0.002 km² per hex).
+This keeps explored territory legible at normal ride-map zoom levels without awarding huge
+regions for a short ride. If a later release changes to a finer resolution, existing cells
+can be consolidated automatically into their res-11 parent cells; wallet balances and
+historical ride records remain unchanged.
 
 ---
 
