@@ -2,13 +2,11 @@ import { useEffect, useRef } from 'react'
 import maplibregl, { Map as MlMap, Marker } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { cellToLatLng, getResolution } from 'h3-js'
-import type { Feature, LineString, MultiLineString } from 'geojson'
 import type { GeoFix } from '../hooks/useGeolocation'
 import { useExplored } from '../state/explored'
 import { usePrefs } from '../state/prefs'
 import { styleUrl } from './styles'
-import { buildFog, completeSmallGaps } from '../lib/fog'
-import { completedRoadBlocks } from '../lib/roadBlocks'
+import { buildFog } from '../lib/fog'
 import { HEX_RES } from '../domain/economy'
 
 interface Props {
@@ -40,35 +38,16 @@ export function RideMap({ fix, follow }: Props) {
     const s = b.getSouth() - pad
     const n = b.getNorth() + pad
 
-    const explored: string[] = []
+    const inView: string[] = []
     for (const h3 of useExplored.getState().cells.keys()) {
       if (getResolution(h3) !== HEX_RES) continue // ignore cells from another resolution
-      explored.push(h3)
-    }
-
-    const inView: string[] = []
-    for (const h3 of [...explored, ...completeSmallGaps(explored)]) {
       const [lat, lng] = cellToLatLng(h3)
       if (lat >= s && lat <= n && lng >= w && lng <= e) inView.push(h3)
     }
 
-    const completedBlocks = map.getSource('openmaptiles')
-      ? completedRoadBlocks(
-          map.querySourceFeatures('openmaptiles', { sourceLayer: 'transportation' }) as unknown as Feature<
-            LineString | MultiLineString,
-            { class?: string }
-          >[],
-          new Set(explored),
-          { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() },
-        )
-      : { type: 'FeatureCollection' as const, features: [] }
-    const { fill, edges } = buildFog(
-      inView,
-      completedBlocks.features.map((block) => block.geometry),
-    )
+    const { fill, edges } = buildFog(inView)
     ;(map.getSource('fog') as maplibregl.GeoJSONSource | undefined)?.setData(fill)
     ;(map.getSource('fog-edges') as maplibregl.GeoJSONSource | undefined)?.setData(edges)
-    ;(map.getSource('fog-completion') as maplibregl.GeoJSONSource | undefined)?.setData(completedBlocks)
   }
 
   // (Re)attach the fog sources/layers — runs on first load and after setStyle.
@@ -82,20 +61,6 @@ export function RideMap({ fix, follow }: Props) {
       map.addSource('fog-edges', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
-      })
-    }
-    if (!map.getSource('fog-completion')) {
-      map.addSource('fog-completion', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-      })
-    }
-    if (!map.getLayer('fog-completion')) {
-      map.addLayer({
-        id: 'fog-completion',
-        type: 'fill',
-        source: 'fog-completion',
-        paint: { 'fill-color': '#0d1b2a', 'fill-opacity': 0.5 },
       })
     }
     if (!map.getLayer('fog-fill')) {
