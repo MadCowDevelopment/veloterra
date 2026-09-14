@@ -14,6 +14,17 @@ interface Props {
   follow: boolean
 }
 
+/** Bearing in degrees (0 = north, clockwise) from a → b. */
+function bearing(a: GeoFix, b: GeoFix): number {
+  const φ1 = (a.lat * Math.PI) / 180
+  const φ2 = (b.lat * Math.PI) / 180
+  const Δλ = ((b.lng - a.lng) * Math.PI) / 180
+  const x = Math.sin(Δλ) * Math.cos(φ2)
+  const y = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)
+  const θ = Math.atan2(x, y)
+  return ((θ * 180) / Math.PI + 360) % 360
+}
+
 export function RideMap({ fix, follow }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
@@ -22,6 +33,7 @@ export function RideMap({ fix, follow }: Props) {
   const centeredRef = useRef(false)
   const followRef = useRef(follow)
   const latestFix = useRef<GeoFix | null>(null)
+  const prevFix = useRef<GeoFix | null>(null)
 
   const revision = useExplored((s) => s.revision)
   const mapStyle = usePrefs((s) => s.mapStyle)
@@ -105,8 +117,29 @@ export function RideMap({ fix, follow }: Props) {
 
     const el = document.createElement('div')
     el.className = 'rider-dot'
-    el.innerHTML = '<span class="rider-dot__pulse"></span><span class="rider-dot__core"></span>'
+    el.innerHTML = `
+      <svg class="rider-arrow" viewBox="0 0 24 24" aria-hidden="true">
+        <path class="rider-arrow__body" d="M12 2 21 13.5 16 13.5 16 22 8 22 8 13.5 3 13.5Z" />
+        <circle class="rider-arrow__dot" cx="12" cy="10" r="2.2" />
+      </svg>
+    `
     markerRef.current = new maplibregl.Marker({ element: el }).setLngLat([0, 20]).addTo(map)
+
+    // Rotate the arrow to face the travel direction (0° = north, clockwise).
+    const applyHeading = (heading: number | null) => {
+      const arrow = markerRef.current
+        ?.getElement()
+        ?.querySelector('.rider-arrow') as SVGSVGElement | null
+      if (!arrow) return
+      if (heading == null) {
+        arrow.style.opacity = '0.45'
+        return
+      }
+      arrow.style.opacity = '1'
+      arrow.style.transformOrigin = '12px 12px'
+      arrow.style.transform = `rotate(${((heading + 360) % 360)}deg)`
+    }
+    ;(globalThis as any).__applyHeading = applyHeading
 
     // Fires on initial load and after every setStyle().
     map.on('style.load', addFog)
@@ -144,6 +177,14 @@ export function RideMap({ fix, follow }: Props) {
     latestFix.current = fix
     const lngLat: [number, number] = [fix.lng, fix.lat]
     markerRef.current?.setLngLat(lngLat)
+
+    // Prefer GPS heading; fall back to bearing from the last two positions.
+    let heading = fix.heading
+    if (heading == null && prevFix.current) {
+      heading = bearing(prevFix.current, fix)
+    }
+    ;(globalThis as any).__applyHeading?.(heading)
+    prevFix.current = fix
 
     if (!centeredRef.current) {
       map.jumpTo({ center: lngLat, zoom: 16.5 })

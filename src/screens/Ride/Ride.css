@@ -28,34 +28,48 @@
 /* Live position marker */
 .rider-dot {
   position: relative;
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.rider-dot__core {
-  position: absolute;
-  inset: 4px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid #04140f;
-  box-shadow: 0 0 14px rgba(34, 227, 196, 0.9);
+.rider-arrow {
+  width: 26px;
+  height: 26px;
+  filter: drop-shadow(0 0 6px rgba(34, 227, 196, 0.9));
+  transition: transform 0.18s ease, opacity 0.2s ease;
 }
 
-.rider-dot__pulse {
+.rider-arrow__body {
+  fill: var(--accent);
+  stroke: #04140f;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+
+.rider-arrow__dot {
+  fill: #04140f;
+}
+
+/* Outer pulse ring behind the arrow */
+.rider-dot::before {
+  content: '';
   position: absolute;
-  inset: 0;
+  inset: -2px;
   border-radius: 50%;
   background: rgba(34, 227, 196, 0.35);
-  animation: pulse 2s ease-out infinite;
+  animation: rider-pulse 2s ease-out infinite;
 }
 
-@keyframes pulse {
+@keyframes rider-pulse {
   0% {
-    transform: scale(0.6);
+    transform: scale(0.7);
     opacity: 0.8;
   }
   100% {
-    transform: scale(2.6);
+    transform: scale(2.4);
     opacity: 0;
   }
 }
