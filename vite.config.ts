@@ -8,8 +8,9 @@ import { resolve } from 'node:path'
 // copied into dist/ so the built app can locate it at runtime.
 const maplibreWorker = resolve('node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs')
 
-// App is served from https://<user>.github.io/veloterra/ on GitHub Pages.
-const base = '/veloterra/'
+// This branch deploys to https://<user>.github.io/velonext/. Override with
+// BASE_URL=/veloterra/ when building the main branch from this checkout.
+const base = process.env.BASE_URL ?? '/velonext/'
 
 export default defineConfig({
   base,
