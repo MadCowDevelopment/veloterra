@@ -4,6 +4,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { copyFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+// MapLibre GL v6 runs tile parsing in web workers; the worker bundle must be
+// copied into dist/ so the built app can locate it at runtime.
+const maplibreWorker = resolve('node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs')
+
 // App is served from https://<user>.github.io/veloterra/ on GitHub Pages.
 const base = '/veloterra/'
 
@@ -13,7 +17,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon-48x48.png', 'apple-touch-icon.png', 'logo.svg'],
+      includeAssets: ['favicon-48x48.png', 'apple-touch-icon.png', 'logo.svg', 'maplibre-gl-worker.mjs'],
       manifest: {
         name: 'VeloTerra',
         short_name: 'VeloTerra',
@@ -37,7 +41,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,mjs}'],
         navigateFallback: `${base}index.html`,
         runtimeCaching: [
           {
@@ -59,6 +63,7 @@ export default defineConfig({
       name: 'spa-404-fallback',
       writeBundle(options) {
         const dir = options.dir ?? 'dist'
+        copyFileSync(maplibreWorker, resolve(dir, 'maplibre-gl-worker.mjs'))
         copyFileSync(resolve(dir, 'index.html'), resolve(dir, '404.html'))
       },
     },
