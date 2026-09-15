@@ -9,7 +9,7 @@ import type { RideRow } from '../../data/db'
 import './Rides.css'
 
 export function RideSummary() {
-  const { id } = useParams<{ id: string }>()
+  const { id } = useParams()
   const navigate = useNavigate()
   const [ride, setRide] = useState<RideRow | null | undefined>(undefined)
 

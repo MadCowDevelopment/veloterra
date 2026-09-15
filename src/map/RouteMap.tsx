@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import maplibregl, { Map as MlMap } from 'maplibre-gl'
+import { Map as MlMap, LngLatBounds } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { usePrefs } from '../state/prefs'
 import { styleUrl } from './styles'
@@ -16,7 +16,7 @@ export function RouteMap({ path }: Props) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current || path.length < 1) return
 
-    const map = new maplibregl.Map({
+    const map = new MlMap({
       container: containerRef.current,
       style: styleUrl(mapStyle),
       attributionControl: { compact: true },
@@ -70,7 +70,7 @@ export function RouteMap({ path }: Props) {
         },
       })
 
-      const b = new maplibregl.LngLatBounds()
+      const b = new LngLatBounds()
       for (const p of path) b.extend(p)
       map.fitBounds(b, { padding: 44, maxZoom: 16, duration: 0 })
     })

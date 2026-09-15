@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import maplibregl, { Map as MlMap, Marker } from 'maplibre-gl'
+import { Map as MlMap, Marker, type GeoJSONSource } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { cellToLatLng, getResolution } from 'h3-js'
 import type { GeoFix } from '../hooks/useGeolocation'
@@ -58,8 +58,8 @@ export function RideMap({ fix, follow }: Props) {
     }
 
     const { fill, edges } = buildFog(inView)
-    ;(map.getSource('fog') as maplibregl.GeoJSONSource | undefined)?.setData(fill)
-    ;(map.getSource('fog-edges') as maplibregl.GeoJSONSource | undefined)?.setData(edges)
+    ;(map.getSource('fog') as GeoJSONSource | undefined)?.setData(fill)
+    ;(map.getSource('fog-edges') as GeoJSONSource | undefined)?.setData(edges)
   }
 
   // (Re)attach the fog sources/layers — runs on first load and after setStyle.
@@ -104,7 +104,7 @@ export function RideMap({ fix, follow }: Props) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
 
-    const map = new maplibregl.Map({
+    const map = new MlMap({
       container: containerRef.current,
       style: styleUrl(styleIdRef.current),
       center: [0, 20],
@@ -123,7 +123,7 @@ export function RideMap({ fix, follow }: Props) {
         <circle class="rider-arrow__dot" cx="12" cy="10" r="2.2" />
       </svg>
     `
-    markerRef.current = new maplibregl.Marker({ element: el }).setLngLat([0, 20]).addTo(map)
+    markerRef.current = new Marker({ element: el }).setLngLat([0, 20]).addTo(map)
 
     // Rotate the arrow to face the travel direction (0° = north, clockwise).
     const applyHeading = (heading: number | null) => {
