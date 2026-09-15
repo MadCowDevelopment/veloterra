@@ -47,7 +47,7 @@
 }
 
 .rider-arrow__outline {
-  fill: rgba(34, 227, 196, 0.16);
+  fill: rgba(34, 227, 196, 0.08);
   stroke: var(--accent);
   stroke-width: 1.1;
   stroke-linejoin: round;
