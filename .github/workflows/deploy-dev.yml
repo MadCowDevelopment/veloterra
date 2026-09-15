@@ -53,7 +53,7 @@ jobs:
       - name: Deploy to velonext Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
-          personal_token: ${{ secrets.velonext_deploy_token }}
+          personal_token: ${{ secrets.VELONEXT_DEPLOY_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
           external_repository: MadCowDevelopment/velonext
