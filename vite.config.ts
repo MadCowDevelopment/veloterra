@@ -41,7 +41,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,mjs}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,mjs}', 'assets/maplibre-gl-worker.mjs'],
         navigateFallback: `${base}index.html`,
         runtimeCaching: [
           {
@@ -63,7 +63,9 @@ export default defineConfig({
       name: 'spa-404-fallback',
       writeBundle(options) {
         const dir = options.dir ?? 'dist'
-        copyFileSync(maplibreWorker, resolve(dir, 'maplibre-gl-worker.mjs'))
+        // MapLibre v6 resolves the worker from <base>/assets/, so copy it there
+        // rather than the dist root.
+        copyFileSync(maplibreWorker, resolve(dir, 'assets', 'maplibre-gl-worker.mjs'))
         copyFileSync(resolve(dir, 'index.html'), resolve(dir, '404.html'))
       },
     },
