@@ -56,5 +56,5 @@ jobs:
           github_token: ${{ secrets.velonext_deploy_token }}
           publish_dir: ./dist
           publish_branch: gh-pages
-          destination_repo: MadCowDevelopment/velonext
+          external_repository: MadCowDevelopment/velonext
           keep_files: false
