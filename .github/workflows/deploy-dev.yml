@@ -1,0 +1,60 @@
+name: Deploy dev to velonext GitHub Pages
+
+# The dev branch is a separate, in-progress build that ships to
+# https://madcowdevelopment.github.io/velonext/ instead of /veloterra/.
+#
+# GitHub Pages serves one site per repository and actions/deploy-pages only
+# deploys to the site of the repo the workflow runs in, so this workflow lives
+# in veloterra (where dev is pushed) and pushes the built artifact to the
+# dedicated velonext repo's gh-pages branch.
+#
+# The veloterra fine-grained PAT only needs Contents: Write on
+# MadCowDevelopment/velonext.
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: velonext-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: dev
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Verify base path
+        run: grep -q 'href="/velonext/' dist/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: velonext-dist
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: velonext-dist
+          path: dist
+      - name: Deploy to velonext Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.velonext_deploy_token }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          destination_repo: MadCowDevelopment/velonext
+          keep_files: false
