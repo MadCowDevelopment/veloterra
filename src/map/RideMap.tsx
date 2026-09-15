@@ -119,8 +119,8 @@ export function RideMap({ fix, follow }: Props) {
     el.className = 'rider-dot'
     el.innerHTML = `
       <svg class="rider-arrow" viewBox="0 0 24 24" aria-hidden="true">
-        <path class="rider-arrow__body" d="M12 2 21 13.5 16 13.5 16 22 8 22 8 13.5 3 13.5Z" />
-        <circle class="rider-arrow__dot" cx="12" cy="10" r="2.2" />
+        <path class="rider-arrow__solid" d="M12 0.5 2.5 21 Q7.6 18.2 12 17.2 L12 14.4 Q8.4 16.4 12 14.4 Z" />
+        <path class="rider-arrow__outline" d="M12 0.5 21.5 21 Q16.4 18.6 12 17.2 L12 14.4 Q15.6 16.4 12 14.4 Z" />
       </svg>
     `
     markerRef.current = new Marker({ element: el }).setLngLat([0, 20]).addTo(map)
