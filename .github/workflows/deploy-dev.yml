@@ -8,7 +8,7 @@ name: Deploy dev to velonext GitHub Pages
 # in veloterra (where dev is pushed) and pushes the built artifact to the
 # dedicated velonext repo's gh-pages branch.
 #
-# The veloterra fine-grained PAT only needs Contents: Write on
+# The veloterra PAT only needs repo permissions (contents: write) on
 # MadCowDevelopment/velonext.
 on:
   push:
@@ -53,7 +53,7 @@ jobs:
       - name: Deploy to velonext Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.VELONEXT_DEPLOY_TOKEN }}
+          personal_token: ${{ secrets.velonext_deploy_token }}
           publish_dir: ./dist
           publish_branch: gh-pages
           external_repository: MadCowDevelopment/velonext
