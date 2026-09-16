@@ -44,16 +44,16 @@
 
 .rider-arrow__solid {
   fill: var(--accent);
-  stroke: #061218;
-  stroke-width: 1.5;
+  stroke: #10232a;
+  stroke-width: 0.8;
   stroke-linejoin: round;
   paint-order: stroke fill;
 }
 
 .rider-arrow__outline {
   fill: rgba(34, 227, 196, 0.08);
-  stroke: #061218;
-  stroke-width: 1.6;
+  stroke: #10232a;
+  stroke-width: 0.9;
   stroke-linejoin: round;
 }
 
