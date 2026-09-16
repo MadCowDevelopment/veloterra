@@ -14,6 +14,9 @@ interface Props {
   follow: boolean
 }
 
+const DEFAULT_MAP_CENTER: [number, number] = [10.45, 51.16]
+const DEFAULT_MAP_ZOOM = 5.5
+
 /** Bearing in degrees (0 = north, clockwise) from a → b. */
 function bearing(a: GeoFix, b: GeoFix): number {
   const φ1 = (a.lat * Math.PI) / 180
@@ -97,6 +100,12 @@ export function RideMap({ fix, follow }: Props) {
       })
     }
     readyRef.current = true
+    const f = latestFix.current
+    if (!centeredRef.current && f) {
+      map.jumpTo({ center: [f.lng, f.lat], zoom: 16.5 })
+      markerRef.current?.setLngLat([f.lng, f.lat])
+      centeredRef.current = true
+    }
     updateFog()
   }
 
@@ -107,8 +116,8 @@ export function RideMap({ fix, follow }: Props) {
     const map = new MlMap({
       container: containerRef.current,
       style: styleUrl(styleIdRef.current),
-      center: [0, 20],
-      zoom: 2,
+      center: DEFAULT_MAP_CENTER,
+      zoom: DEFAULT_MAP_ZOOM,
       attributionControl: { compact: true },
       dragRotate: false,
       pitchWithRotate: false,
@@ -123,7 +132,7 @@ export function RideMap({ fix, follow }: Props) {
         <path class="rider-arrow__outline" d="M12 0.5 L21.5 21 Q16.4 18.2 12 14 Z" />
       </svg>
     `
-    markerRef.current = new Marker({ element: el }).setLngLat([0, 20]).addTo(map)
+    markerRef.current = new Marker({ element: el }).setLngLat(DEFAULT_MAP_CENTER).addTo(map)
 
     // Rotate the arrow to face the travel direction (0° = north, clockwise).
     const applyHeading = (heading: number | null) => {
@@ -172,9 +181,9 @@ export function RideMap({ fix, follow }: Props) {
 
   // Update the marker every fix; recenter once initially, then only while following.
   useEffect(() => {
+    latestFix.current = fix
     const map = mapRef.current
     if (!map || !fix) return
-    latestFix.current = fix
     const lngLat: [number, number] = [fix.lng, fix.lat]
     markerRef.current?.setLngLat(lngLat)
 
