@@ -57,7 +57,7 @@ export function RideMap({ fix, follow }: Props) {
       if (lat >= s && lat <= n && lng >= w && lng <= e) inView.push(h3)
     }
 
-    const { fill, edges } = buildFog(inView)
+    const { fill, edges } = buildFog(inView, { west: w, south: s, east: e, north: n })
     ;(map.getSource('fog') as maplibregl.GeoJSONSource | undefined)?.setData(fill)
     ;(map.getSource('fog-edges') as maplibregl.GeoJSONSource | undefined)?.setData(edges)
   }
