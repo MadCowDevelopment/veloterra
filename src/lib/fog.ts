@@ -10,23 +10,6 @@ const WORLD_RING: number[][] = [
   [-179.9, -85],
 ]
 
-export interface FogBounds {
-  west: number
-  south: number
-  east: number
-  north: number
-}
-
-function boundsRing(bounds: FogBounds): number[][] {
-  return [
-    [bounds.west, bounds.south],
-    [bounds.east, bounds.south],
-    [bounds.east, bounds.north],
-    [bounds.west, bounds.north],
-    [bounds.west, bounds.south],
-  ]
-}
-
 function closeLoop(loop: number[][]): number[][] {
   if (loop.length === 0) return loop
   const [fx, fy] = loop[0]
@@ -59,16 +42,14 @@ export interface FogGeometry {
  * Build the fog polygon (world minus explored cells) plus the glowing frontier
  * lines. `cells` should already be filtered to the current viewport.
  */
-export function buildFog(cells: string[], bounds?: FogBounds): FogGeometry {
+export function buildFog(cells: string[]): FogGeometry {
   const fillFeatures: Feature[] = []
   const edgeFeatures: Feature[] = []
-  const outerRing = bounds ? boundsRing(bounds) : WORLD_RING
-
   if (cells.length === 0) {
     fillFeatures.push({
       type: 'Feature',
       properties: {},
-      geometry: { type: 'Polygon', coordinates: [outerRing] } as Polygon,
+      geometry: { type: 'Polygon', coordinates: [WORLD_RING] } as Polygon,
     })
     return {
       fill: { type: 'FeatureCollection', features: fillFeatures },
@@ -105,7 +86,7 @@ export function buildFog(cells: string[], bounds?: FogBounds): FogGeometry {
   fillFeatures.unshift({
     type: 'Feature',
     properties: {},
-    geometry: { type: 'Polygon', coordinates: [outerRing, ...holes] } as Polygon,
+    geometry: { type: 'Polygon', coordinates: [WORLD_RING, ...holes] } as Polygon,
   })
 
   return {
