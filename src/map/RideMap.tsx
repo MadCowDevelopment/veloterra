@@ -57,9 +57,9 @@ export function RideMap({ fix, follow }: Props) {
       if (lat >= s && lat <= n && lng >= w && lng <= e) inView.push(h3)
     }
 
-    const { fill, edges } = buildFog(inView)
-    ;(map.getSource('fog') as GeoJSONSource | undefined)?.setData(fill)
-    ;(map.getSource('fog-edges') as GeoJSONSource | undefined)?.setData(edges)
+    const { fill, edges } = buildFog(inView, { west: w, south: s, east: e, north: n })
+  ;(map.getSource('fog') as GeoJSONSource | undefined)?.setData(fill)
+  ;(map.getSource('fog-edges') as GeoJSONSource | undefined)?.setData(edges)
   }
 
   // (Re)attach the fog sources/layers — runs on first load and after setStyle.

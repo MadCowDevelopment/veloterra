@@ -1,8 +1,7 @@
 import { cellsToMultiPolygon } from 'h3-js'
 import type { Feature, FeatureCollection, Polygon } from 'geojson'
 
-// A rectangle covering the whole web-mercator range; the fog fills this and the
-// explored area is punched out as holes.
+// A rectangle covering the whole web-mercator range for the initial source.
 const WORLD_RING: number[][] = [
   [-179.9, -85],
   [179.9, -85],
@@ -10,6 +9,23 @@ const WORLD_RING: number[][] = [
   [-179.9, 85],
   [-179.9, -85],
 ]
+
+export interface FogBounds {
+  west: number
+  south: number
+  east: number
+  north: number
+}
+
+function boundsRing(bounds: FogBounds): number[][] {
+  return [
+    [bounds.west, bounds.south],
+    [bounds.east, bounds.south],
+    [bounds.east, bounds.north],
+    [bounds.west, bounds.north],
+    [bounds.west, bounds.south],
+  ]
+}
 
 function closeLoop(loop: number[][]): number[][] {
   if (loop.length === 0) return loop
@@ -43,15 +59,16 @@ export interface FogGeometry {
  * Build the fog polygon (world minus explored cells) plus the glowing frontier
  * lines. `cells` should already be filtered to the current viewport.
  */
-export function buildFog(cells: string[]): FogGeometry {
+export function buildFog(cells: string[], bounds?: FogBounds): FogGeometry {
   const fillFeatures: Feature[] = []
   const edgeFeatures: Feature[] = []
+  const outerRing = bounds ? boundsRing(bounds) : WORLD_RING
 
   if (cells.length === 0) {
     fillFeatures.push({
       type: 'Feature',
       properties: {},
-      geometry: { type: 'Polygon', coordinates: [WORLD_RING] } as Polygon,
+      geometry: { type: 'Polygon', coordinates: [outerRing] } as Polygon,
     })
     return {
       fill: { type: 'FeatureCollection', features: fillFeatures },
@@ -88,7 +105,7 @@ export function buildFog(cells: string[]): FogGeometry {
   fillFeatures.unshift({
     type: 'Feature',
     properties: {},
-    geometry: { type: 'Polygon', coordinates: [WORLD_RING, ...holes] } as Polygon,
+    geometry: { type: 'Polygon', coordinates: [outerRing, ...holes] } as Polygon,
   })
 
   return {
