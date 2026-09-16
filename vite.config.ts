@@ -7,6 +7,7 @@ import { resolve } from 'node:path'
 // MapLibre GL v6 runs tile parsing in web workers; the worker bundle must be
 // copied into dist/ so the built app can locate it at runtime.
 const maplibreWorker = resolve('node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs')
+const maplibreShared = resolve('node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs')
 
 // This branch deploys to https://<user>.github.io/velonext/. Override with
 // BASE_URL=/veloterra/ when building the main branch from this checkout.
@@ -67,6 +68,7 @@ export default defineConfig({
         // MapLibre v6 resolves the worker from <base>/assets/, so copy it there
         // rather than the dist root.
         copyFileSync(maplibreWorker, resolve(dir, 'assets', 'maplibre-gl-worker.mjs'))
+        copyFileSync(maplibreShared, resolve(dir, 'assets', 'maplibre-gl-shared.mjs'))
         copyFileSync(resolve(dir, 'index.html'), resolve(dir, '404.html'))
       },
     },
