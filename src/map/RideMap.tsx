@@ -141,7 +141,7 @@ export function RideMap({ fix, follow }: Props) {
         ?.querySelector('.rider-arrow') as SVGSVGElement | null
       if (!arrow) return
       if (heading == null) {
-        arrow.style.opacity = '0.45'
+        arrow.style.opacity = '1'
         return
       }
       arrow.style.opacity = '1'
