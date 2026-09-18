@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Map as MlMap, Marker, type GeoJSONSource } from 'maplibre-gl'
+import { Map as MlMap, Marker, NavigationControl, type GeoJSONSource } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { cellToLatLng, getResolution } from 'h3-js'
 import type { GeoFix } from '../hooks/useGeolocation'
@@ -12,6 +12,8 @@ import { HEX_RES } from '../domain/economy'
 interface Props {
   fix: GeoFix | null
   follow: boolean
+  headingUp?: boolean
+  path?: [number, number][]
   onPositionPick?: (lng: number, lat: number) => void
 }
 
@@ -29,7 +31,7 @@ function bearing(a: GeoFix, b: GeoFix): number {
   return ((θ * 180) / Math.PI + 360) % 360
 }
 
-export function RideMap({ fix, follow, onPositionPick }: Props) {
+export function RideMap({ fix, follow, headingUp = false, path = [], onPositionPick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
@@ -38,6 +40,8 @@ export function RideMap({ fix, follow, onPositionPick }: Props) {
   const followRef = useRef(follow)
   const latestFix = useRef<GeoFix | null>(null)
   const prevFix = useRef<GeoFix | null>(null)
+  const latestHeading = useRef<number | null>(null)
+  const headingUpRef = useRef(headingUp)
   const positionPickRef = useRef(onPositionPick)
 
   const revision = useExplored((s) => s.revision)
@@ -67,10 +71,57 @@ export function RideMap({ fix, follow, onPositionPick }: Props) {
   ;(map.getSource('fog-edges') as GeoJSONSource | undefined)?.setData(edges)
   }
 
-  // (Re)attach the fog sources/layers — runs on first load and after setStyle.
-  const addFog = () => {
+  // (Re)attach custom sources/layers — runs on first load and after setStyle.
+  const addOverlays = () => {
     const map = mapRef.current
     if (!map) return
+    if (!map.getSource('ride-path')) {
+      map.addSource('ride-path', {
+        type: 'geojson',
+        lineMetrics: true,
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: path },
+        },
+      })
+    }
+    if (!map.getLayer('ride-path-glow')) {
+      map.addLayer({
+        id: 'ride-path-glow',
+        type: 'line',
+        source: 'ride-path',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#22e3c4',
+          'line-width': 10,
+          'line-blur': 7,
+          'line-opacity': 0.28,
+        },
+      })
+    }
+    if (!map.getLayer('ride-path-line')) {
+      map.addLayer({
+        id: 'ride-path-line',
+        type: 'line',
+        source: 'ride-path',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-width': 4,
+          'line-gradient': [
+            'interpolate',
+            ['linear'],
+            ['line-progress'],
+            0,
+            '#147d78',
+            0.65,
+            '#22e3c4',
+            1,
+            '#ffd257',
+          ],
+        },
+      })
+    }
     if (!map.getSource('fog')) {
       map.addSource('fog', { type: 'geojson', data: buildFog([]).fill })
     }
@@ -125,6 +176,10 @@ export function RideMap({ fix, follow, onPositionPick }: Props) {
       pitchWithRotate: false,
     })
     mapRef.current = map
+    map.addControl(
+      new NavigationControl({ showCompass: true, showZoom: false, visualizePitch: false }),
+      'top-right',
+    )
 
     const el = document.createElement('div')
     el.className = 'rider-dot'
@@ -153,7 +208,7 @@ export function RideMap({ fix, follow, onPositionPick }: Props) {
     ;(globalThis as any).__applyHeading = applyHeading
 
     // Fires on initial load and after every setStyle().
-    map.on('style.load', addFog)
+    map.on('style.load', addOverlays)
     map.on('moveend', updateFog)
     map.on('click', (event) => {
       positionPickRef.current?.(event.lngLat.lng, event.lngLat.lat)
@@ -179,8 +234,17 @@ export function RideMap({ fix, follow, onPositionPick }: Props) {
     readyRef.current = false
     // diff:false forces a full reload so 'style.load' re-fires; re-add fog on idle.
     map.setStyle(styleUrl(mapStyle), { diff: false })
-    map.once('idle', addFog)
+    map.once('idle', addOverlays)
   }, [mapStyle])
+
+  useEffect(() => {
+    const source = mapRef.current?.getSource('ride-path') as GeoJSONSource | undefined
+    source?.setData({
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'LineString', coordinates: path },
+    })
+  }, [path])
 
   // Rebuild fog when new cells are revealed.
   useEffect(() => {
@@ -201,16 +265,32 @@ export function RideMap({ fix, follow, onPositionPick }: Props) {
     if (heading == null && prevFix.current) {
       heading = bearing(prevFix.current, fix)
     }
-    ;(globalThis as any).__applyHeading?.(heading)
+    latestHeading.current = heading
+    const mapBearing = headingUpRef.current && heading != null ? heading : map.getBearing()
+    ;(globalThis as any).__applyHeading?.(heading == null ? null : heading - mapBearing)
     prevFix.current = fix
 
     if (!centeredRef.current) {
       map.jumpTo({ center: lngLat, zoom: 16.5 })
       centeredRef.current = true
     } else if (followRef.current) {
-      map.easeTo({ center: lngLat, duration: 500 })
+      map.easeTo({
+        center: lngLat,
+        bearing: headingUpRef.current && heading != null ? heading : map.getBearing(),
+        duration: 500,
+      })
     }
   }, [fix])
+
+  useEffect(() => {
+    headingUpRef.current = headingUp
+    const map = mapRef.current
+    if (!map) return
+    const heading = latestHeading.current
+    const bearing = headingUp && heading != null ? heading : 0
+    map.easeTo({ bearing, duration: 400 })
+    ;(globalThis as any).__applyHeading?.(heading == null ? null : heading - bearing)
+  }, [headingUp])
 
   // When following turns on, snap back to the rider (in case the map was panned).
   useEffect(() => {

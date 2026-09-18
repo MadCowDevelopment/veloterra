@@ -35,6 +35,7 @@ export function Ride() {
   const [elapsedMs, setElapsedMs] = useState(0)
   const [now, setNow] = useState(Date.now())
   const [hudVisible, setHudVisible] = useState(true)
+  const [headingUp, setHeadingUp] = useState(false)
 
   const runningSince = useRef<number | null>(null)
   const startedAt = useRef<number>(0)
@@ -179,6 +180,8 @@ export function Ride() {
       <RideMap
         fix={fix}
         follow={phase === 'tracking'}
+        headingUp={headingUp}
+        path={[...path.current]}
         onPositionPick={simulated ? setSimulatedPosition : undefined}
       />
 
@@ -188,6 +191,16 @@ export function Ride() {
         </button>
         <div className="ride__top-right">
           <StatusBadge status={status} accuracy={fix?.accuracy} simulated={simulated} />
+          <button
+            className={`pill-btn heading-btn${headingUp ? ' is-active' : ''}`}
+            onClick={() => setHeadingUp((active) => !active)}
+            aria-label="Keep direction of travel up"
+            aria-pressed={headingUp}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="m3 11 19-9-9 19-2-8-8-2Z" />
+            </svg>
+          </button>
           <StylePicker />
         </div>
       </div>

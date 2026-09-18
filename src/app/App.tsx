@@ -7,6 +7,7 @@ import { Settings } from '../screens/Settings/Settings'
 import { Offline } from '../screens/Offline/Offline'
 import { RidesHistory } from '../screens/Rides/RidesHistory'
 import { RideSummary } from '../screens/Rides/RideSummary'
+import { Explore } from '../screens/Explore/Explore'
 import { useAuth } from '../state/auth'
 import { syncNow } from '../lib/sync'
 
@@ -32,6 +33,7 @@ export function App() {
     <Routes>
       <Route path="/" element={<Menu />} />
       <Route path="/ride" element={<Ride />} />
+      <Route path="/explore" element={<Explore />} />
       <Route path="/wallet" element={<Wallet />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/offline" element={<Offline />} />

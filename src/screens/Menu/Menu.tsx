@@ -1,13 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useWallet } from '../../state/wallet'
-import { formatDistance } from '../../lib/geo'
 import { CoinAmount } from '../../components/CoinAmount'
 import './Menu.css'
 
 export function Menu() {
   const balance = useWallet((s) => s.balance)
-  const totalDistanceM = useWallet((s) => s.totalDistanceM)
-  const ridesCount = useWallet((s) => s.ridesCount)
 
   return (
     <div className="menu">
@@ -33,6 +30,10 @@ export function Menu() {
           Start Ride
         </Link>
 
+        <Link to="/explore" className="btn btn--explore">
+          Explore World
+        </Link>
+
         <div className="menu__row">
           <Link to="/wallet" className="btn btn--ghost">
             Wallet
@@ -46,16 +47,6 @@ export function Menu() {
         </div>
       </nav>
 
-      <footer className="menu__stats">
-        <div className="stat">
-          <div className="stat__value">{ridesCount}</div>
-          <div className="stat__label">Rides</div>
-        </div>
-        <div className="stat">
-          <div className="stat__value">{formatDistance(totalDistanceM)}</div>
-          <div className="stat__label">Explored</div>
-        </div>
-      </footer>
     </div>
   )
 }

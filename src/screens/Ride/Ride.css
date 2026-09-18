@@ -19,6 +19,29 @@
   font-size: 10px;
 }
 
+.ride-map .maplibregl-ctrl-top-right {
+  top: max(68px, calc(env(safe-area-inset-top) + 52px));
+  right: 6px;
+}
+
+.ride-map .maplibregl-ctrl-group {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+}
+
+.ride-map .maplibregl-ctrl-group button {
+  width: 44px;
+  height: 44px;
+}
+
+.ride-map .maplibregl-ctrl-compass .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+
 /* Subtle scrim so the HUD stays readable over the map (real fog is a map layer) */
 .ride-scrim {
   position: absolute;
@@ -175,6 +198,13 @@
   color: var(--text);
   font-size: 18px;
   backdrop-filter: blur(12px);
+}
+
+.heading-btn.is-active {
+  color: #04140f;
+  border-color: transparent;
+  background: var(--accent-grad);
+  box-shadow: var(--glow);
 }
 
 .gps-badge {
