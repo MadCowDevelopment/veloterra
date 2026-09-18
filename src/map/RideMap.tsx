@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import maplibregl, { Map as MlMap, Marker } from 'maplibre-gl'
+import { Map as MlMap, Marker, type GeoJSONSource } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { cellToLatLng, getResolution } from 'h3-js'
 import type { GeoFix } from '../hooks/useGeolocation'
@@ -13,6 +13,9 @@ interface Props {
   fix: GeoFix | null
   follow: boolean
 }
+
+const DEFAULT_MAP_CENTER: [number, number] = [10.45, 51.16]
+const DEFAULT_MAP_ZOOM = 5.5
 
 /** Bearing in degrees (0 = north, clockwise) from a → b. */
 function bearing(a: GeoFix, b: GeoFix): number {
@@ -58,8 +61,8 @@ export function RideMap({ fix, follow }: Props) {
     }
 
     const { fill, edges } = buildFog(inView)
-    ;(map.getSource('fog') as maplibregl.GeoJSONSource | undefined)?.setData(fill)
-    ;(map.getSource('fog-edges') as maplibregl.GeoJSONSource | undefined)?.setData(edges)
+  ;(map.getSource('fog') as GeoJSONSource | undefined)?.setData(fill)
+  ;(map.getSource('fog-edges') as GeoJSONSource | undefined)?.setData(edges)
   }
 
   // (Re)attach the fog sources/layers — runs on first load and after setStyle.
@@ -97,6 +100,12 @@ export function RideMap({ fix, follow }: Props) {
       })
     }
     readyRef.current = true
+    const f = latestFix.current
+    if (!centeredRef.current && f) {
+      map.jumpTo({ center: [f.lng, f.lat], zoom: 16.5 })
+      markerRef.current?.setLngLat([f.lng, f.lat])
+      centeredRef.current = true
+    }
     updateFog()
   }
 
@@ -104,11 +113,11 @@ export function RideMap({ fix, follow }: Props) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
 
-    const map = new maplibregl.Map({
+    const map = new MlMap({
       container: containerRef.current,
       style: styleUrl(styleIdRef.current),
-      center: [0, 20],
-      zoom: 2,
+      center: DEFAULT_MAP_CENTER,
+      zoom: DEFAULT_MAP_ZOOM,
       attributionControl: { compact: true },
       dragRotate: false,
       pitchWithRotate: false,
@@ -119,11 +128,11 @@ export function RideMap({ fix, follow }: Props) {
     el.className = 'rider-dot'
     el.innerHTML = `
       <svg class="rider-arrow" viewBox="0 0 24 24" aria-hidden="true">
-        <path class="rider-arrow__body" d="M12 2 21 13.5 16 13.5 16 22 8 22 8 13.5 3 13.5Z" />
-        <circle class="rider-arrow__dot" cx="12" cy="10" r="2.2" />
+        <path class="rider-arrow__solid" d="M12 0.5 L2.5 21 Q7.6 18.2 12 14 Z" />
+        <path class="rider-arrow__outline" d="M12 0.5 L21.5 21 Q16.4 18.2 12 14 Z" />
       </svg>
     `
-    markerRef.current = new maplibregl.Marker({ element: el }).setLngLat([0, 20]).addTo(map)
+    markerRef.current = new Marker({ element: el }).setLngLat(DEFAULT_MAP_CENTER).addTo(map)
 
     // Rotate the arrow to face the travel direction (0° = north, clockwise).
     const applyHeading = (heading: number | null) => {
@@ -132,7 +141,7 @@ export function RideMap({ fix, follow }: Props) {
         ?.querySelector('.rider-arrow') as SVGSVGElement | null
       if (!arrow) return
       if (heading == null) {
-        arrow.style.opacity = '0.45'
+        arrow.style.opacity = '1'
         return
       }
       arrow.style.opacity = '1'
@@ -172,9 +181,9 @@ export function RideMap({ fix, follow }: Props) {
 
   // Update the marker every fix; recenter once initially, then only while following.
   useEffect(() => {
+    latestFix.current = fix
     const map = mapRef.current
     if (!map || !fix) return
-    latestFix.current = fix
     const lngLat: [number, number] = [fix.lng, fix.lat]
     markerRef.current?.setLngLat(lngLat)
 

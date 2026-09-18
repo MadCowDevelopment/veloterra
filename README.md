@@ -4,6 +4,7 @@ Ride your bike, uncover the map, and earn coins. VeloTerra is an installable,
 offline-first web app built around a real-world fog-of-war map.
 
 **Live app:** [madcowdevelopment.github.io/veloterra](https://madcowdevelopment.github.io/veloterra/)
+**Dev build:** [madcowdevelopment.github.io/velonext](https://madcowdevelopment.github.io/velonext/) (MapLibre GL v6 + worker fix, from the `dev` branch)
 
 ## What works today
 
@@ -57,6 +58,17 @@ Run `npm run typecheck` for a TypeScript-only check.
 
 The production build uses the `/veloterra/` base path expected by GitHub Pages. Local
 preview URLs therefore include that path.
+
+## Dev branch build
+
+The `dev` branch is a separate, in-progress build that deploys to
+[velonext](https://madcowdevelopment.github.io/velonext/) on its own GitHub Pages
+site. GitHub Pages serves one site per repository, so the built artifact is pushed to
+the dedicated `velonext` repository's `gh-pages` branch by the
+`.github/workflows/deploy-dev.yml` workflow.
+
+The base path is env-driven: the dev branch defaults to `/velonext/`, and the main
+branch can be built from this checkout with `BASE_URL=/veloterra/ npm run build`.
 
 ## Offline behavior
 

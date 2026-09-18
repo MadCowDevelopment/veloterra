@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import maplibregl, { Map as MlMap } from 'maplibre-gl'
+import { Map as MlMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { countTiles, estimateMB, type Bounds } from '../../lib/tiles'
 import {
@@ -61,7 +61,7 @@ export function Offline() {
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
-    const map = new maplibregl.Map({
+    const map = new MlMap({
       container: containerRef.current,
       style: styleUrl('bright'),
       center: [10.45, 51.16],

@@ -1,8 +1,7 @@
 import { cellsToMultiPolygon } from 'h3-js'
 import type { Feature, FeatureCollection, Polygon } from 'geojson'
 
-// A rectangle covering the whole web-mercator range; the fog fills this and the
-// explored area is punched out as holes.
+// A rectangle covering the whole web-mercator range for the initial source.
 const WORLD_RING: number[][] = [
   [-179.9, -85],
   [179.9, -85],
@@ -46,7 +45,6 @@ export interface FogGeometry {
 export function buildFog(cells: string[]): FogGeometry {
   const fillFeatures: Feature[] = []
   const edgeFeatures: Feature[] = []
-
   if (cells.length === 0) {
     fillFeatures.push({
       type: 'Feature',
