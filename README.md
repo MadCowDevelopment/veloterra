@@ -6,6 +6,12 @@ offline-first web app built around a real-world fog-of-war map.
 **Live app:** [madcowdevelopment.github.io/veloterra](https://madcowdevelopment.github.io/veloterra/)
 **Dev build:** [madcowdevelopment.github.io/velonext](https://madcowdevelopment.github.io/velonext/) (MapLibre GL v6 + worker fix, from the `dev` branch)
 
+## Documentation
+
+- [Software architecture](Architecture/README.md) — current arc42 SAD, diagrams, quality scenarios, risks, and ADRs
+- [Project plan](PLAN.md) — future requirements, ideas, experiments, and open questions
+- `MANUAL.md` — planned user-facing installation and usage guide
+
 ## What works today
 
 - Foreground GPS ride tracking with start, pause, resume, and finish controls
@@ -41,8 +47,8 @@ npm run dev
 ```
 
 Open the printed URL. To test GPS on your phone over WiFi you need HTTPS — the easiest way
-is a quick tunnel, e.g. `npx cloudflared tunnel --url http://localhost:5173`, then open the
-`https://` link on the phone.
+is a production preview or deployed build. The Vite development server automatically uses
+simulated GPS; click the map to move the rider through the normal ride-processing path.
 
 The development server does not register the service worker, so offline map downloads
 must be tested from a production preview or the installed GitHub Pages app.
@@ -54,7 +60,8 @@ npm run build
 npm run preview
 ```
 
-Run `npm run typecheck` for a TypeScript-only check.
+`npm run build` is the current compile validation. The standalone `npm run typecheck`
+command is known to fail because `--noEmit` conflicts with the referenced composite config.
 
 The production build uses the `/veloterra/` base path expected by GitHub Pages. Local
 preview URLs therefore include that path.
