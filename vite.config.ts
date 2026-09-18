@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { copyFileSync } from 'node:fs'
+import { copyFileSync, createReadStream } from 'node:fs'
 import { resolve } from 'node:path'
 
 // MapLibre GL v6 runs tile parsing in web workers; the worker bundle must be
@@ -63,6 +63,21 @@ export default defineConfig({
     // GitHub Pages has no SPA rewrite; serve index.html for unknown deep links.
     {
       name: 'spa-404-fallback',
+      configureServer(server) {
+        const workerAssets = new Map([
+          ['maplibre-gl-worker.mjs', maplibreWorker],
+          ['maplibre-gl-shared.mjs', maplibreShared],
+        ])
+        server.middlewares.use((request, response, next) => {
+          const pathname = new URL(request.url ?? '/', 'http://localhost').pathname
+          const name = pathname.split('/').pop() ?? ''
+          const file = workerAssets.get(name)
+          if (!file || !pathname.includes('/assets/')) return next()
+          response.statusCode = 200
+          response.setHeader('Content-Type', 'text/javascript')
+          createReadStream(file).pipe(response)
+        })
+      },
       writeBundle(options) {
         const dir = options.dir ?? 'dist'
         // MapLibre v6 resolves the worker from <base>/assets/, so copy it there

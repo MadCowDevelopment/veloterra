@@ -23,7 +23,7 @@ interface CoinPop {
 
 export function Ride() {
   const navigate = useNavigate()
-  const { fix, status } = useGeolocation({ enabled: true })
+  const { fix, status, simulated, setSimulatedPosition } = useGeolocation({ enabled: true })
 
   const [phase, setPhase] = useState<Phase>('idle')
   useWakeLock(phase !== 'idle')
@@ -95,7 +95,10 @@ export function Ride() {
   }, [fix, phase, reveal, addCoins, addDistance])
 
   const elapsed =
-    elapsedMs + (phase === 'tracking' && runningSince.current ? now - runningSince.current : 0)
+    elapsedMs +
+    (phase === 'tracking' && runningSince.current
+      ? Math.max(0, now - runningSince.current)
+      : 0)
 
   const speedKmh = useMemo(() => {
     if (phase === 'tracking' && fix?.speed != null && fix.speed >= 0) return fix.speed * 3.6
@@ -161,7 +164,7 @@ export function Ride() {
         path: path.current,
         maxSpeedKmh: Math.round(maxSpeed.current * 10) / 10,
       })
-      syncNow() // push this ride if signed in (no-op otherwise)
+      if (!simulated) syncNow() // simulated progress must stay local
       navigate(`/rides/${id}`)
       return
     }
@@ -173,14 +176,18 @@ export function Ride() {
 
   return (
     <div className="ride" onPointerDown={revealHud}>
-      <RideMap fix={fix} follow={phase === 'tracking'} />
+      <RideMap
+        fix={fix}
+        follow={phase === 'tracking'}
+        onPositionPick={simulated ? setSimulatedPosition : undefined}
+      />
 
       <div className={`ride__hud ride__hud--top${hidden}`}>
         <button className="pill-btn" onClick={leave} aria-label="Back to menu">
           ✕
         </button>
         <div className="ride__top-right">
-          <StatusBadge status={status} accuracy={fix?.accuracy} />
+          <StatusBadge status={status} accuracy={fix?.accuracy} simulated={simulated} />
           <StylePicker />
         </div>
       </div>
@@ -188,7 +195,9 @@ export function Ride() {
       <div className={`ride__hud ride__hud--bottom${hidden}`}>
         {phase === 'idle' ? (
           <>
-            <div className="ride__hint">Look around the map, then start your ride.</div>
+            <div className="ride__hint">
+              {simulated ? 'Click the map to place the rider.' : 'Look around the map, then start your ride.'}
+            </div>
             <button className="start-btn" onClick={start} disabled={!gpsReady}>
               {gpsReady ? 'Start Ride' : 'Getting GPS…'}
             </button>
@@ -279,9 +288,19 @@ function StylePicker() {
   )
 }
 
-function StatusBadge({ status, accuracy }: { status: string; accuracy?: number }) {
+function StatusBadge({
+  status,
+  accuracy,
+  simulated,
+}: {
+  status: string
+  accuracy?: number
+  simulated: boolean
+}) {
   const label =
-    status === 'tracking'
+    simulated
+      ? 'Simulated GPS'
+      : status === 'tracking'
       ? accuracy != null
         ? `GPS ±${Math.round(accuracy)} m`
         : 'GPS locked'
@@ -294,7 +313,7 @@ function StatusBadge({ status, accuracy }: { status: string; accuracy?: number }
             : 'GPS…'
   const ok = status === 'tracking'
   return (
-    <div className={`gps-badge ${ok ? 'gps-badge--ok' : ''}`}>
+    <div className={`gps-badge ${ok ? 'gps-badge--ok' : ''}${simulated ? ' gps-badge--simulated' : ''}`}>
       <span className="gps-badge__dot" />
       {label}
     </div>

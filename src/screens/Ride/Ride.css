@@ -11,6 +11,10 @@
   inset: 0;
 }
 
+.ride-map--position-pick .maplibregl-canvas {
+  cursor: crosshair;
+}
+
 .maplibregl-ctrl-attrib {
   font-size: 10px;
 }
@@ -197,6 +201,11 @@
 .gps-badge--ok .gps-badge__dot {
   background: var(--accent);
   box-shadow: 0 0 8px var(--accent);
+}
+
+.gps-badge--simulated .gps-badge__dot {
+  background: var(--coin);
+  box-shadow: 0 0 8px var(--coin);
 }
 
 .hud-row {

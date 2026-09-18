@@ -12,6 +12,7 @@ import { HEX_RES } from '../domain/economy'
 interface Props {
   fix: GeoFix | null
   follow: boolean
+  onPositionPick?: (lng: number, lat: number) => void
 }
 
 const DEFAULT_MAP_CENTER: [number, number] = [10.45, 51.16]
@@ -28,7 +29,7 @@ function bearing(a: GeoFix, b: GeoFix): number {
   return ((θ * 180) / Math.PI + 360) % 360
 }
 
-export function RideMap({ fix, follow }: Props) {
+export function RideMap({ fix, follow, onPositionPick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
@@ -37,6 +38,7 @@ export function RideMap({ fix, follow }: Props) {
   const followRef = useRef(follow)
   const latestFix = useRef<GeoFix | null>(null)
   const prevFix = useRef<GeoFix | null>(null)
+  const positionPickRef = useRef(onPositionPick)
 
   const revision = useExplored((s) => s.revision)
   const mapStyle = usePrefs((s) => s.mapStyle)
@@ -153,6 +155,9 @@ export function RideMap({ fix, follow }: Props) {
     // Fires on initial load and after every setStyle().
     map.on('style.load', addFog)
     map.on('moveend', updateFog)
+    map.on('click', (event) => {
+      positionPickRef.current?.(event.lngLat.lng, event.lngLat.lat)
+    })
 
     return () => {
       map.remove()
@@ -161,6 +166,10 @@ export function RideMap({ fix, follow }: Props) {
       readyRef.current = false
     }
   }, [])
+
+  useEffect(() => {
+    positionPickRef.current = onPositionPick
+  }, [onPositionPick])
 
   // Switch basemap style when the preference changes (fog is re-added on load).
   useEffect(() => {
@@ -214,7 +223,7 @@ export function RideMap({ fix, follow }: Props) {
   }, [follow])
 
   return (
-    <div className="ride-map">
+    <div className={`ride-map${onPositionPick ? ' ride-map--position-pick' : ''}`}>
       <div ref={containerRef} className="ride-map__canvas" />
       <div className="ride-scrim" aria-hidden />
     </div>
