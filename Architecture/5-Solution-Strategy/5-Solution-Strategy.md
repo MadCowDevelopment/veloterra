@@ -25,4 +25,4 @@ Summarize the fundamental solution approaches that address goals and constraints
 - Local-first persistence with explicit two-way cloud reconciliation.
 - Static deployment with managed SaaS integrations.
 
-The rationale and consequences of significant choices are recorded in [Section 11](11-Architectural-Decisions/README.md).
+The rationale and consequences of significant choices are recorded in [Section 11](../11-Architectural-Decisions/README.md).

@@ -6,9 +6,9 @@ This documentation describes the architecture implemented in the VeloTerra repos
 
 1. [Foreword](1-Foreword/1.1-Overview.md)
 2. [Introduction and Goals](2-Introduction-and-Goals/2.1-Requirements-Overview.md)
-3. [Architecture Constraints](3-Architecture-Constraints.md)
+3. [Architecture Constraints](3-Architecture-Constraints/3-Architecture-Constraints.md)
 4. [System Scope and Context](4-System-Scope-and-Context/4.1-Business-Context.md)
-5. [Solution Strategy](5-Solution-Strategy.md)
+5. [Solution Strategy](5-Solution-Strategy/5-Solution-Strategy.md)
 6. [Building Block View](6-Building-Block-View/6.1-Whitebox-Overall-System.md)
 7. [Runtime View](7-Runtime-View/7.1-Ride-Lifecycle.md)
 8. [Deployment View](8-Deployment-View/8.1-Infrastructure.md)
