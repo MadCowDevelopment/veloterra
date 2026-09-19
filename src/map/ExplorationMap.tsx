@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { Map as MlMap, Popup, type GeoJSONSource } from 'maplibre-gl'
+import { Map as MlMap, NavigationControl, Popup, type GeoJSONSource } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { cellToBoundary, cellToLatLng, getResolution } from 'h3-js'
 import { HEX_RES } from '../domain/economy'
@@ -13,6 +13,7 @@ export function ExplorationMap() {
   const revision = useExplored((state) => state.revision)
   const cells = useExplored((state) => state.cells)
   const mapStyle = usePrefs((state) => state.mapStyle)
+  const styleIdRef = useRef(mapStyle)
 
   const data = useMemo(() => {
     const rows = [...cells.values()].filter((row) => getResolution(row.h3) === HEX_RES)
@@ -57,13 +58,17 @@ export function ExplorationMap() {
 
     const map = new MlMap({
       container: containerRef.current,
-      style: styleUrl(mapStyle),
+      style: styleUrl(styleIdRef.current),
       center: [10, 28],
       zoom: 1.4,
       minZoom: 1,
       attributionControl: { compact: true },
     })
     mapRef.current = map
+    map.addControl(
+      new NavigationControl({ showCompass: true, showZoom: false, visualizePitch: false }),
+      'top-right',
+    )
 
     map.on('style.load', () => {
       map.addSource('explored-polygons', { type: 'geojson', data: dataRef.current.polygons })
@@ -148,6 +153,13 @@ export function ExplorationMap() {
       map.remove()
       mapRef.current = null
     }
+  }, [])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || mapStyle === styleIdRef.current) return
+    styleIdRef.current = mapStyle
+    map.setStyle(styleUrl(mapStyle), { diff: false })
   }, [mapStyle])
 
   useEffect(() => {

@@ -6,10 +6,9 @@ import { useWakeLock } from '../../hooks/useWakeLock'
 import { haversine, formatDistance, formatDuration, type LngLat } from '../../lib/geo'
 import { useWallet } from '../../state/wallet'
 import { useExplored } from '../../state/explored'
-import { usePrefs } from '../../state/prefs'
-import { MAP_STYLES } from '../../map/styles'
 import { MAX_ACCURACY_M } from '../../domain/economy'
 import { CoinAmount } from '../../components/CoinAmount'
+import { MapStylePicker } from '../../components/MapStylePicker'
 import { addRide } from '../../lib/rides'
 import { syncNow } from '../../lib/sync'
 import './Ride.css'
@@ -201,7 +200,7 @@ export function Ride() {
               <path d="m3 11 19-9-9 19-2-8-8-2Z" />
             </svg>
           </button>
-          <StylePicker />
+          <MapStylePicker />
         </div>
       </div>
 
@@ -261,42 +260,6 @@ export function Ride() {
           </>
         )}
       </div>
-    </div>
-  )
-}
-
-function StylePicker() {
-  const [open, setOpen] = useState(false)
-  const mapStyle = usePrefs((s) => s.mapStyle)
-  const setMapStyle = usePrefs((s) => s.setMapStyle)
-  return (
-    <div className="stylepick">
-      <button
-        className="pill-btn"
-        onClick={() => setOpen((o) => !o)}
-        aria-label="Map style"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
-          <path d="M12 2 2 7l10 5 10-5-10-5Z" />
-          <path d="m2 17 10 5 10-5M2 12l10 5 10-5" />
-        </svg>
-      </button>
-      {open && (
-        <div className="stylepick__menu">
-          {MAP_STYLES.map((s) => (
-            <button
-              key={s.id}
-              className={`stylepick__item ${s.id === mapStyle ? 'is-active' : ''}`}
-              onClick={() => {
-                setMapStyle(s.id)
-                setOpen(false)
-              }}
-            >
-              {s.name}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

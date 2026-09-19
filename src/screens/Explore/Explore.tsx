@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { MapStylePicker } from '../../components/MapStylePicker'
 import { ExplorationMap } from '../../map/ExplorationMap'
 import { useExplored } from '../../state/explored'
 import './Explore.css'
@@ -23,6 +24,9 @@ export function Explore() {
           <span>{revision >= 0 ? cellCount.toLocaleString() : 0} hexes</span>
         </div>
       </header>
+      <div className="explore__controls">
+        <MapStylePicker />
+      </div>
       {cellCount === 0 && (
         <div className="explore__empty">Complete a ride to reveal your first place.</div>
       )}
