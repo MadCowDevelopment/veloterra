@@ -9,13 +9,14 @@ import { resolve } from 'node:path'
 const maplibreWorker = resolve('node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs')
 const maplibreShared = resolve('node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs')
 
-// This branch deploys to https://<user>.github.io/velonext/. Override with
-// BASE_URL=/veloterra/ when building the main branch from this checkout.
-const base = process.env.BASE_URL ?? '/velonext/'
+export default defineConfig(({ command }) => {
+  // Local development has its own host and needs no repository subpath.
+  // Deployment workflows override the production-safe build fallback.
+  const base = process.env.BASE_URL ?? (command === 'serve' ? '/' : '/veloterra/')
 
-export default defineConfig({
-  base,
-  plugins: [
+  return {
+    base,
+    plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -87,5 +88,6 @@ export default defineConfig({
         copyFileSync(resolve(dir, 'index.html'), resolve(dir, '404.html'))
       },
     },
-  ],
+    ],
+  }
 })

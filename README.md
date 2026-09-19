@@ -74,8 +74,9 @@ site. GitHub Pages serves one site per repository, so the built artifact is push
 the dedicated `velonext` repository's `gh-pages` branch by the
 `.github/workflows/deploy-dev.yml` workflow.
 
-The base path is env-driven: the dev branch defaults to `/velonext/`, and the main
-branch can be built from this checkout with `BASE_URL=/veloterra/ npm run build`.
+The base path is env-driven. The local development server uses `/`, local builds
+default to `/veloterra/`, and both deployment workflows explicitly set and verify
+their target (`/veloterra/` for `main`, `/velonext/` for `dev`) before publishing.
 
 ## Offline behavior
 

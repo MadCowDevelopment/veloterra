@@ -17,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      BASE_URL: /veloterra/
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -25,6 +27,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Verify base path
+        run: |
+          grep -q 'src="/veloterra/assets/' dist/index.html
+          if grep -R '/velonext/' dist; then exit 1; fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
