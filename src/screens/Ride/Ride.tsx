@@ -6,10 +6,9 @@ import { useWakeLock } from '../../hooks/useWakeLock'
 import { haversine, formatDistance, formatDuration, type LngLat } from '../../lib/geo'
 import { useWallet } from '../../state/wallet'
 import { useExplored } from '../../state/explored'
-import { usePrefs } from '../../state/prefs'
-import { MAP_STYLES } from '../../map/styles'
 import { MAX_ACCURACY_M } from '../../domain/economy'
 import { CoinAmount } from '../../components/CoinAmount'
+import { MapStylePicker } from '../../components/MapStylePicker'
 import { addRide } from '../../lib/rides'
 import { syncNow } from '../../lib/sync'
 import './Ride.css'
@@ -23,7 +22,7 @@ interface CoinPop {
 
 export function Ride() {
   const navigate = useNavigate()
-  const { fix, status } = useGeolocation({ enabled: true })
+  const { fix, status, simulated, setSimulatedPosition } = useGeolocation({ enabled: true })
 
   const [phase, setPhase] = useState<Phase>('idle')
   useWakeLock(phase !== 'idle')
@@ -35,6 +34,7 @@ export function Ride() {
   const [elapsedMs, setElapsedMs] = useState(0)
   const [now, setNow] = useState(Date.now())
   const [hudVisible, setHudVisible] = useState(true)
+  const [headingUp, setHeadingUp] = useState(false)
 
   const runningSince = useRef<number | null>(null)
   const startedAt = useRef<number>(0)
@@ -95,7 +95,10 @@ export function Ride() {
   }, [fix, phase, reveal, addCoins, addDistance])
 
   const elapsed =
-    elapsedMs + (phase === 'tracking' && runningSince.current ? now - runningSince.current : 0)
+    elapsedMs +
+    (phase === 'tracking' && runningSince.current
+      ? Math.max(0, now - runningSince.current)
+      : 0)
 
   const speedKmh = useMemo(() => {
     if (phase === 'tracking' && fix?.speed != null && fix.speed >= 0) return fix.speed * 3.6
@@ -161,7 +164,7 @@ export function Ride() {
         path: path.current,
         maxSpeedKmh: Math.round(maxSpeed.current * 10) / 10,
       })
-      syncNow() // push this ride if signed in (no-op otherwise)
+      if (!simulated) syncNow() // simulated progress must stay local
       navigate(`/rides/${id}`)
       return
     }
@@ -173,22 +176,40 @@ export function Ride() {
 
   return (
     <div className="ride" onPointerDown={revealHud}>
-      <RideMap fix={fix} follow={phase === 'tracking'} />
+      <RideMap
+        fix={fix}
+        follow={phase === 'tracking'}
+        headingUp={headingUp}
+        path={[...path.current]}
+        onPositionPick={simulated ? setSimulatedPosition : undefined}
+      />
 
       <div className={`ride__hud ride__hud--top${hidden}`}>
         <button className="pill-btn" onClick={leave} aria-label="Back to menu">
           ✕
         </button>
         <div className="ride__top-right">
-          <StatusBadge status={status} accuracy={fix?.accuracy} />
-          <StylePicker />
+          <StatusBadge status={status} accuracy={fix?.accuracy} simulated={simulated} />
+          <button
+            className={`pill-btn heading-btn${headingUp ? ' is-active' : ''}`}
+            onClick={() => setHeadingUp((active) => !active)}
+            aria-label="Keep direction of travel up"
+            aria-pressed={headingUp}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="m3 11 19-9-9 19-2-8-8-2Z" />
+            </svg>
+          </button>
+          <MapStylePicker />
         </div>
       </div>
 
       <div className={`ride__hud ride__hud--bottom${hidden}`}>
         {phase === 'idle' ? (
           <>
-            <div className="ride__hint">Look around the map, then start your ride.</div>
+            <div className="ride__hint">
+              {simulated ? 'Click the map to place the rider.' : 'Look around the map, then start your ride.'}
+            </div>
             <button className="start-btn" onClick={start} disabled={!gpsReady}>
               {gpsReady ? 'Start Ride' : 'Getting GPS…'}
             </button>
@@ -243,45 +264,19 @@ export function Ride() {
   )
 }
 
-function StylePicker() {
-  const [open, setOpen] = useState(false)
-  const mapStyle = usePrefs((s) => s.mapStyle)
-  const setMapStyle = usePrefs((s) => s.setMapStyle)
-  return (
-    <div className="stylepick">
-      <button
-        className="pill-btn"
-        onClick={() => setOpen((o) => !o)}
-        aria-label="Map style"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
-          <path d="M12 2 2 7l10 5 10-5-10-5Z" />
-          <path d="m2 17 10 5 10-5M2 12l10 5 10-5" />
-        </svg>
-      </button>
-      {open && (
-        <div className="stylepick__menu">
-          {MAP_STYLES.map((s) => (
-            <button
-              key={s.id}
-              className={`stylepick__item ${s.id === mapStyle ? 'is-active' : ''}`}
-              onClick={() => {
-                setMapStyle(s.id)
-                setOpen(false)
-              }}
-            >
-              {s.name}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function StatusBadge({ status, accuracy }: { status: string; accuracy?: number }) {
+function StatusBadge({
+  status,
+  accuracy,
+  simulated,
+}: {
+  status: string
+  accuracy?: number
+  simulated: boolean
+}) {
   const label =
-    status === 'tracking'
+    simulated
+      ? 'Simulated GPS'
+      : status === 'tracking'
       ? accuracy != null
         ? `GPS ±${Math.round(accuracy)} m`
         : 'GPS locked'
@@ -294,7 +289,7 @@ function StatusBadge({ status, accuracy }: { status: string; accuracy?: number }
             : 'GPS…'
   const ok = status === 'tracking'
   return (
-    <div className={`gps-badge ${ok ? 'gps-badge--ok' : ''}`}>
+    <div className={`gps-badge ${ok ? 'gps-badge--ok' : ''}${simulated ? ' gps-badge--simulated' : ''}`}>
       <span className="gps-badge__dot" />
       {label}
     </div>

@@ -146,32 +146,9 @@
   color: var(--text-dim);
 }
 
-.menu__stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 20px;
-  z-index: 1;
-}
-
-.stat {
-  padding: 14px;
-  text-align: center;
+.btn--explore {
+  height: 54px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  color: var(--accent);
   backdrop-filter: blur(12px);
-}
-
-.stat__value {
-  font-size: 22px;
-  font-weight: 800;
-}
-
-.stat__label {
-  margin-top: 2px;
-  color: var(--text-faint);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }

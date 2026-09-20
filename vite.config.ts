@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { copyFileSync } from 'node:fs'
+import { copyFileSync, createReadStream } from 'node:fs'
 import { resolve } from 'node:path'
 
 // MapLibre GL v6 runs tile parsing in web workers; the worker bundle must be
@@ -9,13 +9,14 @@ import { resolve } from 'node:path'
 const maplibreWorker = resolve('node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs')
 const maplibreShared = resolve('node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs')
 
-// This branch deploys to https://<user>.github.io/velonext/. Override with
-// BASE_URL=/veloterra/ when building the main branch from this checkout.
-const base = process.env.BASE_URL ?? '/velonext/'
+export default defineConfig(({ command }) => {
+  // Local development has its own host and needs no repository subpath.
+  // Deployment workflows override the production-safe build fallback.
+  const base = process.env.BASE_URL ?? (command === 'serve' ? '/' : '/veloterra/')
 
-export default defineConfig({
-  base,
-  plugins: [
+  return {
+    base,
+    plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -63,6 +64,21 @@ export default defineConfig({
     // GitHub Pages has no SPA rewrite; serve index.html for unknown deep links.
     {
       name: 'spa-404-fallback',
+      configureServer(server) {
+        const workerAssets = new Map([
+          ['maplibre-gl-worker.mjs', maplibreWorker],
+          ['maplibre-gl-shared.mjs', maplibreShared],
+        ])
+        server.middlewares.use((request, response, next) => {
+          const pathname = new URL(request.url ?? '/', 'http://localhost').pathname
+          const name = pathname.split('/').pop() ?? ''
+          const file = workerAssets.get(name)
+          if (!file || !pathname.includes('/assets/')) return next()
+          response.statusCode = 200
+          response.setHeader('Content-Type', 'text/javascript')
+          createReadStream(file).pipe(response)
+        })
+      },
       writeBundle(options) {
         const dir = options.dir ?? 'dist'
         // MapLibre v6 resolves the worker from <base>/assets/, so copy it there
@@ -72,5 +88,6 @@ export default defineConfig({
         copyFileSync(resolve(dir, 'index.html'), resolve(dir, '404.html'))
       },
     },
-  ],
+    ],
+  }
 })

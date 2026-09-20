@@ -1,0 +1,48 @@
+.map-style-picker {
+  position: relative;
+}
+
+.map-style-picker__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  backdrop-filter: blur(12px);
+}
+
+.map-style-picker__menu {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+}
+
+.map-style-picker__item {
+  min-width: 108px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.map-style-picker__item.is-active {
+  color: #04140f;
+  background: var(--accent-grad);
+}

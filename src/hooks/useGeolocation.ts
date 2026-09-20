@@ -15,6 +15,15 @@ interface Options {
   enabled: boolean
 }
 
+const MOCK_START: GeoFix = {
+  lng: 10.45,
+  lat: 51.16,
+  accuracy: 5,
+  speed: 0,
+  heading: null,
+  timestamp: 0,
+}
+
 /**
  * Continuous high-accuracy position tracking via the Geolocation API.
  * GPS works without internet — only map tiles need a connection.
@@ -23,9 +32,15 @@ export function useGeolocation({ enabled }: Options) {
   const [fix, setFix] = useState<GeoFix | null>(null)
   const [status, setStatus] = useState<Status>('idle')
   const watchId = useRef<number | null>(null)
+  const simulated = import.meta.env.DEV
 
   useEffect(() => {
     if (!enabled) return
+    if (simulated) {
+      setFix({ ...MOCK_START, timestamp: Date.now() })
+      setStatus('tracking')
+      return
+    }
     if (!('geolocation' in navigator)) {
       setStatus('unavailable')
       return
@@ -57,7 +72,19 @@ export function useGeolocation({ enabled }: Options) {
         watchId.current = null
       }
     }
-  }, [enabled])
+  }, [enabled, simulated])
 
-  return { fix, status }
+  const setSimulatedPosition = (lng: number, lat: number) => {
+    if (!simulated) return
+    setFix((previous) => ({
+      lng,
+      lat,
+      accuracy: 5,
+      speed: previous ? 5 : 0,
+      heading: null,
+      timestamp: Date.now(),
+    }))
+  }
+
+  return { fix, status, simulated, setSimulatedPosition }
 }

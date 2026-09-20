@@ -11,8 +11,35 @@
   inset: 0;
 }
 
+.ride-map--position-pick .maplibregl-canvas {
+  cursor: crosshair;
+}
+
 .maplibregl-ctrl-attrib {
   font-size: 10px;
+}
+
+.ride-map .maplibregl-ctrl-top-right {
+  top: max(68px, calc(env(safe-area-inset-top) + 52px));
+  right: 6px;
+}
+
+.ride-map .maplibregl-ctrl-group {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+}
+
+.ride-map .maplibregl-ctrl-group button {
+  width: 44px;
+  height: 44px;
+}
+
+.ride-map .maplibregl-ctrl-compass .maplibregl-ctrl-icon {
+  filter: invert(1);
 }
 
 /* Subtle scrim so the HUD stays readable over the map (real fog is a map layer) */
@@ -115,42 +142,6 @@
   gap: 8px;
 }
 
-.stylepick {
-  position: relative;
-}
-
-.stylepick__menu {
-  position: absolute;
-  top: 52px;
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 6px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  backdrop-filter: blur(14px);
-  box-shadow: var(--shadow);
-}
-
-.stylepick__item {
-  min-width: 108px;
-  text-align: left;
-  padding: 10px 14px;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.stylepick__item.is-active {
-  color: #04140f;
-  background: var(--accent-grad);
-}
-
 .ride__hud--bottom {
   bottom: max(20px, env(safe-area-inset-bottom));
   display: flex;
@@ -171,6 +162,13 @@
   color: var(--text);
   font-size: 18px;
   backdrop-filter: blur(12px);
+}
+
+.heading-btn.is-active {
+  color: #04140f;
+  border-color: transparent;
+  background: var(--accent-grad);
+  box-shadow: var(--glow);
 }
 
 .gps-badge {
@@ -197,6 +195,11 @@
 .gps-badge--ok .gps-badge__dot {
   background: var(--accent);
   box-shadow: 0 0 8px var(--accent);
+}
+
+.gps-badge--simulated .gps-badge__dot {
+  background: var(--coin);
+  box-shadow: 0 0 8px var(--coin);
 }
 
 .hud-row {
