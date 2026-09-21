@@ -51,6 +51,14 @@ interface OsmXmlElement {
   member?: Array<{ type: string; ref: number }>
 }
 
+function messageFor(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+    return error.message
+  }
+  return 'Landmark discovery failed'
+}
+
 function categoryFor(tags: Tags): Category | null {
   if (tags.historic === 'wayside_cross' || tags.historic === 'wayside_shrine') return null
   if (['ruins', 'archaeological_site'].includes(tags.historic)) return 'ruins'
@@ -237,6 +245,7 @@ Deno.serve(async (request) => {
     const areaKey = `${Math.round(centerLat / DISCOVERY_AREA_STEP)}:${Math.round(centerLng / DISCOVERY_AREA_STEP)}`
     const { data: claim, error: claimError } = await userClient.rpc('claim_landmark_discovery', {
       p_area_key: areaKey,
+      p_classification_version: CLASSIFICATION_VERSION,
     })
     if (claimError) throw claimError
     if (claim === 'cached') {
@@ -316,7 +325,7 @@ Deno.serve(async (request) => {
 
     return Response.json({ discovered: uniqueRows.length }, { headers: corsHeaders })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Landmark discovery failed'
+    const message = messageFor(error)
     const status = message === 'Authentication required'
       ? 401
       : message === 'Daily landmark discovery limit reached'

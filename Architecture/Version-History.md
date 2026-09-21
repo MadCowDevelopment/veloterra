@@ -2,6 +2,7 @@
 
 | Version | Date | Author | Change |
 |---|---|---|---|
+| 1.7 | 2026-09-21 | VeloTerra maintainers | Made landmark discovery coverage version-aware and documented the application-enforced daily quota. |
 | 1.6 | 2026-09-21 | VeloTerra maintainers | Changed landmark contribution entry to whole gold and enforced a one-gold minimum request. |
 | 1.5 | 2026-09-21 | VeloTerra maintainers | Clarified landmark significance signals and versioned catalog repricing safeguards. |
 | 1.4 | 2026-09-21 | VeloTerra maintainers | Added ride-driven global landmark discovery, explored-cell visibility, restoration progress, atomic contributions, and ledger-compatible wallet accounting. |
