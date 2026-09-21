@@ -15,7 +15,7 @@ interface Props {
   onSelectLandmark: (landmark: Landmark) => void
 }
 
-const DETAIL_ZOOM = 12
+const LANDMARK_ZOOM = 12
 
 function visibleBounds(map: MlMap): LandmarkBounds {
   const bounds = map.getBounds()
@@ -39,10 +39,12 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
   const mapStyle = usePrefs((state) => state.mapStyle)
   const exploreMapCenter = usePrefs((state) => state.exploreMapCenter)
   const exploreMapZoom = usePrefs((state) => state.exploreMapZoom)
+  const exploreHexZoom = usePrefs((state) => state.exploreHexZoom)
   const setExploreMapView = usePrefs((state) => state.setExploreMapView)
   const styleIdRef = useRef(mapStyle)
   const exploreMapCenterRef = useRef(exploreMapCenter)
   const exploreMapZoomRef = useRef(exploreMapZoom)
+  const exploreHexZoomRef = useRef(exploreHexZoom)
   const setExploreMapViewRef = useRef(setExploreMapView)
   const userRef = useRef(user)
   const loadLandmarksRef = useRef(loadLandmarks)
@@ -126,7 +128,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
         id: 'explored-overview',
         type: 'heatmap',
         source: 'explored-points',
-        maxzoom: DETAIL_ZOOM,
+        maxzoom: exploreHexZoomRef.current,
         paint: {
           'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 1, 5, 8, 7, 11, 10],
           'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 1, 0.35, 8, 0.65, 11, 1],
@@ -147,7 +149,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
         id: 'explored-hexes',
         type: 'fill',
         source: 'explored-polygons',
-        minzoom: DETAIL_ZOOM,
+        minzoom: exploreHexZoomRef.current,
         paint: {
           'fill-color': ['interpolate', ['linear'], ['get', 'visits'], 1, '#22e3c4', 5, '#ffd257', 20, '#ff7a68'],
           'fill-opacity': 0.58,
@@ -169,7 +171,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
     map.on('mouseleave', 'explored-hexes', () => { map.getCanvas().style.cursor = '' })
 
     const updateLandmarkVisibility = () => {
-      map.getContainer().classList.toggle('exploration-map--landmarks-hidden', map.getZoom() < DETAIL_ZOOM)
+      map.getContainer().classList.toggle('exploration-map--landmarks-hidden', map.getZoom() < LANDMARK_ZOOM)
     }
     updateLandmarkVisibility()
     map.on('zoom', updateLandmarkVisibility)
@@ -177,7 +179,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
     const refreshLandmarks = () => {
       const center = map.getCenter()
       setExploreMapViewRef.current([center.lng, center.lat], map.getZoom())
-      if (!userRef.current || map.getZoom() < DETAIL_ZOOM) return
+      if (!userRef.current || map.getZoom() < LANDMARK_ZOOM) return
       void loadLandmarksRef.current(visibleBounds(map))
     }
     map.on('moveend', refreshLandmarks)
@@ -203,8 +205,16 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
   }, [data])
 
   useEffect(() => {
+    exploreHexZoomRef.current = exploreHexZoom
     const map = mapRef.current
-    if (!map || !user || map.getZoom() < DETAIL_ZOOM) return
+    if (!map?.getLayer('explored-overview') || !map.getLayer('explored-hexes')) return
+    map.setLayerZoomRange('explored-overview', 0, exploreHexZoom)
+    map.setLayerZoomRange('explored-hexes', exploreHexZoom, 24)
+  }, [exploreHexZoom])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !user || map.getZoom() < LANDMARK_ZOOM) return
     void loadLandmarks(visibleBounds(map))
   }, [landmarkRevision, loadLandmarks, user])
 
