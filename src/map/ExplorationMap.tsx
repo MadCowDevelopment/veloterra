@@ -17,10 +17,11 @@ interface Props {
 
 const discoveredAreas = new Set<string>()
 const discoveringAreas = new Set<string>()
+const DISCOVERY_AREA_STEP = 0.02
 
 function areaKey(map: MlMap): string {
   const center = map.getCenter()
-  return `${Math.round(center.lat / 0.04)}:${Math.round(center.lng / 0.04)}`
+  return `${Math.round(center.lat / DISCOVERY_AREA_STEP)}:${Math.round(center.lng / DISCOVERY_AREA_STEP)}`
 }
 
 function visibleBounds(map: MlMap): LandmarkBounds {

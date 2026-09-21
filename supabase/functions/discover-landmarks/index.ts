@@ -9,6 +9,7 @@ const corsHeaders = {
 const TIER_BASE_COPPER = [10_000, 100_000, 1_000_000, 5_000_000] as const
 const CLASSIFICATION_VERSION = 1
 const MAX_SPAN_DEGREES = 0.16
+const DISCOVERY_AREA_STEP = 0.02
 const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
@@ -233,7 +234,7 @@ Deno.serve(async (request) => {
 
     const centerLat = (bounds.south + bounds.north) / 2
     const centerLng = (bounds.west + bounds.east) / 2
-    const areaKey = `${Math.round(centerLat / 0.04)}:${Math.round(centerLng / 0.04)}`
+    const areaKey = `${Math.round(centerLat / DISCOVERY_AREA_STEP)}:${Math.round(centerLng / DISCOVERY_AREA_STEP)}`
     const { data: claim, error: claimError } = await userClient.rpc('claim_landmark_discovery', {
       p_area_key: areaKey,
     })
