@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { XMLParser } from 'npm:fast-xml-parser@5.2.5'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,6 +11,7 @@ const CLASSIFICATION_VERSION = 1
 const MAX_SPAN_DEGREES = 0.16
 const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
   'https://overpass-api.de/api/interpreter',
 ]
 const GLOBAL_OVERRIDES: Record<string, { tier: 4; scopeMultiplier: 10 }> = {
@@ -37,6 +39,15 @@ interface OverpassElement {
   lon?: number
   center?: { lat: number; lon: number }
   tags?: Tags
+}
+
+interface OsmXmlElement {
+  id: number
+  lat?: number
+  lon?: number
+  tag?: Array<{ k: string; v: string }>
+  nd?: Array<{ ref: number }>
+  member?: Array<{ type: string; ref: number }>
 }
 
 function categoryFor(tags: Tags): Category | null {
@@ -96,25 +107,102 @@ function buildQuery({ south, west, north, east }: Bounds): string {
 }
 
 async function queryOverpass(bounds: Bounds): Promise<{ elements: OverpassElement[] }> {
-  const failures: string[] = []
-  for (const endpoint of OVERPASS_ENDPOINTS) {
+  const query = buildQuery(bounds)
+  const request = async (endpoint: string) => {
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
+      const url = new URL(endpoint)
+      url.searchParams.set('data', query)
+      const response = await fetch(url, {
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': 'VeloTerra/0.1 landmark discovery',
         },
-        body: new URLSearchParams({ data: buildQuery(bounds) }),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(50_000),
       })
       if (response.ok) return await response.json() as { elements: OverpassElement[] }
-      failures.push(`${new URL(endpoint).host}: ${response.status}`)
+      throw new Error(`${new URL(endpoint).host}: ${response.status}`)
     } catch (error) {
-      failures.push(`${new URL(endpoint).host}: ${error instanceof Error ? error.message : 'request failed'}`)
+      const message = error instanceof Error ? error.message : 'request failed'
+      throw new Error(message.startsWith(`${new URL(endpoint).host}:`) ? message : `${new URL(endpoint).host}: ${message}`)
     }
   }
-  throw new Error(`OpenStreetMap query failed (${failures.join(', ')})`)
+  try {
+    return await Promise.any(OVERPASS_ENDPOINTS.map(request))
+  } catch (error) {
+    const failures = error instanceof AggregateError
+      ? error.errors.map((failure) => failure instanceof Error ? failure.message : String(failure))
+      : [error instanceof Error ? error.message : String(error)]
+    throw new Error(`OpenStreetMap query failed (${failures.join(', ')})`)
+  }
+}
+
+async function queryOsmMap(bounds: Bounds): Promise<{ elements: OverpassElement[] }> {
+  const centerLat = (bounds.south + bounds.north) / 2
+  const centerLng = (bounds.west + bounds.east) / 2
+  const fallbackBounds = {
+    west: Math.max(bounds.west, centerLng - 0.01),
+    south: Math.max(bounds.south, centerLat - 0.012),
+    east: Math.min(bounds.east, centerLng + 0.01),
+    north: Math.min(bounds.north, centerLat + 0.012),
+  }
+  const bbox = `${fallbackBounds.west},${fallbackBounds.south},${fallbackBounds.east},${fallbackBounds.north}`
+  const response = await fetch(`https://api.openstreetmap.org/api/0.6/map?bbox=${bbox}`, {
+    headers: { 'User-Agent': 'VeloTerra/0.1 landmark discovery' },
+    signal: AbortSignal.timeout(35_000),
+  })
+  if (!response.ok) throw new Error(`OpenStreetMap map API failed (${response.status})`)
+
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: '',
+    parseAttributeValue: true,
+    isArray: (_name, path) => /\.(node|way|relation|tag|nd|member)$/.test(path),
+  })
+  const document = parser.parse(await response.text()) as {
+    osm?: { node?: OsmXmlElement[]; way?: OsmXmlElement[]; relation?: OsmXmlElement[] }
+  }
+  const nodes = document.osm?.node ?? []
+  const nodeLocations = new Map(nodes.map((node) => [node.id, { lat: node.lat!, lon: node.lon! }]))
+  const wayCenters = new Map<number, { lat: number; lon: number }>()
+  for (const way of document.osm?.way ?? []) {
+    const points = (way.nd ?? []).flatMap(({ ref }) => nodeLocations.get(ref) ?? [])
+    if (points.length === 0) continue
+    wayCenters.set(way.id, {
+      lat: points.reduce((sum, point) => sum + point.lat, 0) / points.length,
+      lon: points.reduce((sum, point) => sum + point.lon, 0) / points.length,
+    })
+  }
+  const tagsFor = (element: OsmXmlElement): Tags => Object.fromEntries(
+    (element.tag ?? []).map(({ k, v }) => [String(k), String(v)]),
+  )
+  const result: OverpassElement[] = []
+  for (const node of nodes) {
+    const tags = tagsFor(node)
+    if (tags.name && categoryFor(tags)) result.push({ type: 'node', id: node.id, lat: node.lat, lon: node.lon, tags })
+  }
+  for (const way of document.osm?.way ?? []) {
+    const tags = tagsFor(way)
+    const center = wayCenters.get(way.id)
+    if (tags.name && categoryFor(tags) && center) result.push({ type: 'way', id: way.id, center, tags })
+  }
+  for (const relation of document.osm?.relation ?? []) {
+    const tags = tagsFor(relation)
+    if (!tags.name || !categoryFor(tags)) continue
+    const points = (relation.member ?? []).flatMap(({ type, ref }) => {
+      const point = type === 'node' ? nodeLocations.get(ref) : type === 'way' ? wayCenters.get(ref) : undefined
+      return point ?? []
+    })
+    if (points.length === 0) continue
+    result.push({
+      type: 'relation',
+      id: relation.id,
+      center: {
+        lat: points.reduce((sum, point) => sum + point.lat, 0) / points.length,
+        lon: points.reduce((sum, point) => sum + point.lon, 0) / points.length,
+      },
+      tags,
+    })
+  }
+  return { elements: result }
 }
 
 Deno.serve(async (request) => {
@@ -157,14 +245,21 @@ Deno.serve(async (request) => {
     let payload: { elements: OverpassElement[] }
     try {
       payload = await queryOverpass(bounds)
-    } catch (error) {
-      await adminClient
-        .from('landmark_discovery_requests')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('area_key', areaKey)
-        .eq('request_day', new Date().toISOString().slice(0, 10))
-      throw error
+    } catch (overpassError) {
+      try {
+        payload = await queryOsmMap(bounds)
+      } catch (mapError) {
+        const { error: releaseError } = await adminClient
+          .from('landmark_discovery_requests')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('area_key', areaKey)
+        const reasons = [overpassError, mapError]
+          .map((error) => error instanceof Error ? error.message : String(error))
+          .join('; ')
+        if (releaseError) throw new Error(`${reasons}; failed to release discovery claim: ${releaseError.message}`)
+        throw new Error(reasons)
+      }
     }
 
     const rows = payload.elements.flatMap((element) => {
@@ -201,12 +296,12 @@ Deno.serve(async (request) => {
         ignoreDuplicates: true,
       })
       if (error) {
-        await adminClient
+        const { error: releaseError } = await adminClient
           .from('landmark_discovery_requests')
           .delete()
           .eq('user_id', user.id)
           .eq('area_key', areaKey)
-          .eq('request_day', new Date().toISOString().slice(0, 10))
+        if (releaseError) throw new Error(`${error.message}; failed to release discovery claim: ${releaseError.message}`)
         throw error
       }
     }

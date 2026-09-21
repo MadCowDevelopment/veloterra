@@ -31,10 +31,10 @@ function visibleBounds(map: MlMap): LandmarkBounds {
 function discoveryBounds(map: MlMap): LandmarkBounds {
   const { lng, lat } = map.getCenter()
   return {
-    west: Math.max(-180, lng - 0.075),
-    south: Math.max(-90, lat - 0.06),
-    east: Math.min(180, lng + 0.075),
-    north: Math.min(90, lat + 0.06),
+    west: Math.max(-180, lng - 0.04),
+    south: Math.max(-90, lat - 0.03),
+    east: Math.min(180, lng + 0.04),
+    north: Math.min(90, lat + 0.03),
   }
 }
 
@@ -122,9 +122,9 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
       attributionControl: { compact: true },
     })
     mapRef.current = map
-    map.on('styleimagemissing', (event) => {
-      if (event.id === 'gate' && !map.hasImage(event.id)) {
-        map.addImage(event.id, { width: 1, height: 1, data: new Uint8Array([0, 0, 0, 0]) })
+    map.setMissingStyleImageResolver((id) => {
+      if (!map.hasImage(id)) {
+        map.addImage(id, { width: 1, height: 1, data: new Uint8Array([0, 0, 0, 0]) })
       }
     })
     map.addControl(
