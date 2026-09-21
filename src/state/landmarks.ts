@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './auth'
+import { MIN_LANDMARK_CONTRIBUTION_COPPER } from '../domain/economy'
 import { useWallet } from './wallet'
 import type { Landmark, LandmarkBounds, LandmarkCategory } from '../domain/landmarks'
 
@@ -166,7 +167,9 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
     const user = useAuth.getState().user
     if (!user) throw new Error('Sign in to contribute')
     const copper = Math.floor(amount)
-    if (!Number.isSafeInteger(copper) || copper <= 0) throw new Error('Enter a positive coin amount')
+    if (!Number.isSafeInteger(copper) || copper < MIN_LANDMARK_CONTRIBUTION_COPPER) {
+      throw new Error('The minimum contribution is 1 gold')
+    }
 
     await syncProfile()
     const { data, error } = await supabase.rpc('contribute_to_landmark', {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CoinAmount } from './CoinAmount'
+import { MIN_LANDMARK_CONTRIBUTION_COPPER } from '../domain/economy'
 import { LANDMARK_CATEGORY_LABELS, landmarkProgress, landmarkState, type Landmark } from '../domain/landmarks'
 import { useAuth } from '../state/auth'
 import { useLandmarks, type LandmarkContributor } from '../state/landmarks'
@@ -24,12 +25,20 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
   const state = landmarkState(landmark)
   const remaining = landmark.costCopper - landmark.totalContributed
   const progress = landmarkProgress(landmark)
+  const canContribute = balance >= Math.min(MIN_LANDMARK_CONTRIBUTION_COPPER, remaining)
+  const maximumGold = balance >= remaining
+    ? Math.ceil(remaining / MIN_LANDMARK_CONTRIBUTION_COPPER)
+    : Math.floor(balance / MIN_LANDMARK_CONTRIBUTION_COPPER)
+  const requestedGold = Number(amount)
+  const validAmount = Number.isSafeInteger(requestedGold)
+    && requestedGold >= 1
+    && requestedGold <= maximumGold
 
   useEffect(() => {
-    setAmount(String(Math.max(0, Math.min(balance, remaining))))
+    setAmount(canContribute ? '1' : '')
     idempotencyKeyRef.current = null
     setError(null)
-  }, [balance, landmark.id, remaining])
+  }, [canContribute, landmark.id])
 
   useEffect(() => {
     if (!user) return
@@ -41,7 +50,11 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
     setError(null)
     try {
       idempotencyKeyRef.current ??= crypto.randomUUID()
-      await contribute(landmark.id, Number(amount), idempotencyKeyRef.current)
+      await contribute(
+        landmark.id,
+        requestedGold * MIN_LANDMARK_CONTRIBUTION_COPPER,
+        idempotencyKeyRef.current,
+      )
       idempotencyKeyRef.current = null
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Contribution failed')
@@ -70,13 +83,13 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
 
       {state !== 'restored' && user && (
         <div className="landmark-panel__contribute">
-          <label htmlFor="landmark-contribution">Contribute copper</label>
+          <label htmlFor="landmark-contribution">Gold to contribute</label>
           <div>
             <input
               id="landmark-contribution"
               type="number"
               min="1"
-              max={Math.min(balance, remaining)}
+              max={maximumGold}
               step="1"
               value={amount}
               onChange={(event) => {
@@ -86,7 +99,7 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
             />
             <button
               type="button"
-              disabled={submitting || balance <= 0 || Number(amount) <= 0}
+              disabled={submitting || !canContribute || !validAmount}
               onClick={submit}
             >
               {submitting ? 'Contributing…' : 'Contribute'}
