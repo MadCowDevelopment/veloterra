@@ -53,6 +53,20 @@ body {
   flex-direction: column;
 }
 
+.build-stamp {
+  position: fixed;
+  z-index: 1000;
+  bottom: max(4px, env(safe-area-inset-bottom));
+  left: max(6px, env(safe-area-inset-left));
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: rgba(7, 10, 17, 0.68);
+  color: rgba(234, 240, 255, 0.58);
+  font: 9px/1.2 ui-monospace, monospace;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
 button {
   font-family: inherit;
   cursor: pointer;

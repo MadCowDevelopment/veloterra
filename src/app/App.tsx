@@ -11,6 +11,9 @@ import { Explore } from '../screens/Explore/Explore'
 import { useAuth } from '../state/auth'
 import { syncNow } from '../lib/sync'
 
+const buildTime = new Date(__BUILD_TIMESTAMP__)
+const buildLabel = `${__BUILD_REVISION__} · ${buildTime.toISOString().slice(0, 16).replace('T', ' ')}Z`
+
 export function App() {
   const user = useAuth((s) => s.user)
 
@@ -30,15 +33,20 @@ export function App() {
   }, [user])
 
   return (
-    <Routes>
-      <Route path="/" element={<Menu />} />
-      <Route path="/ride" element={<Ride />} />
-      <Route path="/explore" element={<Explore />} />
-      <Route path="/wallet" element={<Wallet />} />
-      <Route path="/settings" element={<Settings />} />
-      <Route path="/offline" element={<Offline />} />
-      <Route path="/rides" element={<RidesHistory />} />
-      <Route path="/rides/:id" element={<RideSummary />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<Menu />} />
+        <Route path="/ride" element={<Ride />} />
+        <Route path="/explore" element={<Explore />} />
+        <Route path="/wallet" element={<Wallet />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/offline" element={<Offline />} />
+        <Route path="/rides" element={<RidesHistory />} />
+        <Route path="/rides/:id" element={<RideSummary />} />
+      </Routes>
+      <time className="build-stamp" dateTime={__BUILD_TIMESTAMP__} title={`Built ${__BUILD_TIMESTAMP__}`}>
+        {buildLabel}
+      </time>
+    </>
   )
 }
