@@ -32,6 +32,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
   const cells = useExplored((state) => state.cells)
   const user = useAuth((state) => state.user)
   const landmarks = useLandmarks((state) => state.landmarks)
+  const landmarkRevision = useLandmarks((state) => state.revision)
   const loadLandmarks = useLandmarks((state) => state.loadBounds)
   const mapStyle = usePrefs((state) => state.mapStyle)
   const styleIdRef = useRef(mapStyle)
@@ -221,7 +222,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
     const map = mapRef.current
     if (!map || !user || map.getZoom() < 10) return
     void loadLandmarks(visibleBounds(map))
-  }, [loadLandmarks, user])
+  }, [landmarkRevision, loadLandmarks, user])
 
   useEffect(() => {
     const map = mapRef.current

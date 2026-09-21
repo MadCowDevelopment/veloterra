@@ -245,17 +245,17 @@ Deno.serve(async (request) => {
 
     let payload: { elements: OverpassElement[] }
     try {
-      payload = await queryOverpass(bounds)
-    } catch (overpassError) {
+      payload = await queryOsmMap(bounds)
+    } catch (mapError) {
       try {
-        payload = await queryOsmMap(bounds)
-      } catch (mapError) {
+        payload = await queryOverpass(bounds)
+      } catch (overpassError) {
         const { error: releaseError } = await adminClient
           .from('landmark_discovery_requests')
           .delete()
           .eq('user_id', user.id)
           .eq('area_key', areaKey)
-        const reasons = [overpassError, mapError]
+        const reasons = [mapError, overpassError]
           .map((error) => error instanceof Error ? error.message : String(error))
           .join('; ')
         if (releaseError) throw new Error(`${reasons}; failed to release discovery claim: ${releaseError.message}`)
@@ -307,6 +307,13 @@ Deno.serve(async (request) => {
       }
     }
 
+    const { error: coverageError } = await adminClient.from('landmark_discovery_areas').upsert({
+      area_key: areaKey,
+      classification_version: CLASSIFICATION_VERSION,
+      discovered_at: new Date().toISOString(),
+    })
+    if (coverageError) throw coverageError
+
     return Response.json({ discovered: uniqueRows.length }, { headers: corsHeaders })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Landmark discovery failed'
@@ -314,7 +321,7 @@ Deno.serve(async (request) => {
       ? 401
       : message === 'Daily landmark discovery limit reached'
         ? 429
-        : message.startsWith('OpenStreetMap query failed')
+        : message.includes('OpenStreetMap')
           ? 502
           : 400
     return Response.json({ error: message }, { status, headers: corsHeaders })

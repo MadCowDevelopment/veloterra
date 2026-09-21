@@ -38,9 +38,10 @@ export interface LandmarkContributor {
 interface LandmarkStore {
   landmarks: Landmark[]
   loading: boolean
+  revision: number
   error: string | null
   loadBounds: (bounds: LandmarkBounds) => Promise<boolean>
-  discoverAround: (latitude: number, longitude: number) => Promise<void>
+  discoverAround: (latitude: number, longitude: number) => Promise<boolean>
   contribute: (landmarkId: string, amount: number, idempotencyKey?: string) => Promise<number>
   loadContributors: (landmarkId: string) => Promise<LandmarkContributor[]>
   subscribe: () => () => void
@@ -101,6 +102,7 @@ async function errorMessage(error: unknown): Promise<string> {
 export const useLandmarks = create<LandmarkStore>((set, get) => ({
   landmarks: [],
   loading: false,
+  revision: 0,
   error: null,
 
   loadBounds: async (bounds) => {
@@ -132,24 +134,29 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
   },
 
   discoverAround: async (latitude, longitude) => {
-    if (!useAuth.getState().user) return
+    if (!useAuth.getState().user) return false
     const area = `${Math.round(latitude / DISCOVERY_AREA_STEP)}:${Math.round(longitude / DISCOVERY_AREA_STEP)}`
-    if (discoveredRideAreas.has(area) || discoveringRideAreas.has(area)) return
+    if (discoveredRideAreas.has(area) || discoveringRideAreas.has(area)) return true
 
     discoveringRideAreas.add(area)
     try {
-      const { error } = await supabase.functions.invoke('discover-landmarks', {
+      const areaLatitude = Math.round(latitude / DISCOVERY_AREA_STEP) * DISCOVERY_AREA_STEP
+      const areaLongitude = Math.round(longitude / DISCOVERY_AREA_STEP) * DISCOVERY_AREA_STEP
+      const { data, error } = await supabase.functions.invoke('discover-landmarks', {
         body: {
-          west: Math.max(-180, longitude - 0.01),
-          south: Math.max(-90, latitude - 0.012),
-          east: Math.min(180, longitude + 0.01),
-          north: Math.min(90, latitude + 0.012),
+          west: Math.max(-180, areaLongitude - 0.01),
+          south: Math.max(-90, areaLatitude - 0.012),
+          east: Math.min(180, areaLongitude + 0.01),
+          north: Math.min(90, areaLatitude + 0.012),
         },
       })
       if (error) throw error
       discoveredRideAreas.add(area)
+      if (Number(data?.discovered) > 0) set((state) => ({ revision: state.revision + 1 }))
+      return true
     } catch (error) {
       set({ error: await errorMessage(error) })
+      return false
     } finally {
       discoveringRideAreas.delete(area)
     }
@@ -210,10 +217,14 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
   subscribe: () => {
     const channel = supabase
       .channel('global-landmark-progress')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'landmarks' }, () => {
+        set((state) => ({ revision: state.revision + 1 }))
+      })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'landmarks' }, (payload) => {
         const updated = payload.new as LandmarkRow
         set((state) => ({
           landmarks: state.landmarks.map((landmark) => landmark.id === updated.id ? fromRow(updated) : landmark),
+          revision: state.revision + 1,
         }))
       })
       .subscribe()
