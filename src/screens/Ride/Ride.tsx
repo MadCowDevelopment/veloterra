@@ -11,6 +11,7 @@ import { CoinAmount } from '../../components/CoinAmount'
 import { MapStylePicker } from '../../components/MapStylePicker'
 import { addRide } from '../../lib/rides'
 import { syncNow } from '../../lib/sync'
+import { usePrefs } from '../../state/prefs'
 import './Ride.css'
 
 type Phase = 'idle' | 'tracking' | 'paused'
@@ -34,7 +35,8 @@ export function Ride() {
   const [elapsedMs, setElapsedMs] = useState(0)
   const [now, setNow] = useState(Date.now())
   const [hudVisible, setHudVisible] = useState(true)
-  const [headingUp, setHeadingUp] = useState(false)
+  const headingUp = usePrefs((state) => state.headingUp)
+  const setHeadingUp = usePrefs((state) => state.setHeadingUp)
 
   const runningSince = useRef<number | null>(null)
   const startedAt = useRef<number>(0)
@@ -192,7 +194,7 @@ export function Ride() {
           <StatusBadge status={status} accuracy={fix?.accuracy} simulated={simulated} />
           <button
             className={`pill-btn heading-btn${headingUp ? ' is-active' : ''}`}
-            onClick={() => setHeadingUp((active) => !active)}
+            onClick={() => setHeadingUp(!headingUp)}
             aria-label="Keep direction of travel up"
             aria-pressed={headingUp}
           >

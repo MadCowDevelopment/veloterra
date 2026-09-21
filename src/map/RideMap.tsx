@@ -46,7 +46,11 @@ export function RideMap({ fix, follow, headingUp = false, path = [], onPositionP
 
   const revision = useExplored((s) => s.revision)
   const mapStyle = usePrefs((s) => s.mapStyle)
+  const rideMapZoom = usePrefs((s) => s.rideMapZoom)
+  const setRideMapZoom = usePrefs((s) => s.setRideMapZoom)
   const styleIdRef = useRef(mapStyle)
+  const rideMapZoomRef = useRef(rideMapZoom)
+  const setRideMapZoomRef = useRef(setRideMapZoom)
 
   // Rebuild the fog polygon for the explored cells currently in view.
   const updateFog = () => {
@@ -155,7 +159,7 @@ export function RideMap({ fix, follow, headingUp = false, path = [], onPositionP
     readyRef.current = true
     const f = latestFix.current
     if (!centeredRef.current && f) {
-      map.jumpTo({ center: [f.lng, f.lat], zoom: 16.5 })
+      map.jumpTo({ center: [f.lng, f.lat], zoom: rideMapZoomRef.current })
       markerRef.current?.setLngLat([f.lng, f.lat])
       centeredRef.current = true
     }
@@ -210,6 +214,9 @@ export function RideMap({ fix, follow, headingUp = false, path = [], onPositionP
     // Fires on initial load and after every setStyle().
     map.on('style.load', addOverlays)
     map.on('moveend', updateFog)
+    map.on('zoomend', () => {
+      if (centeredRef.current) setRideMapZoomRef.current(map.getZoom())
+    })
     map.on('click', (event) => {
       positionPickRef.current?.(event.lngLat.lng, event.lngLat.lat)
     })
@@ -271,7 +278,7 @@ export function RideMap({ fix, follow, headingUp = false, path = [], onPositionP
     prevFix.current = fix
 
     if (!centeredRef.current) {
-      map.jumpTo({ center: lngLat, zoom: 16.5 })
+      map.jumpTo({ center: lngLat, zoom: rideMapZoomRef.current })
       centeredRef.current = true
     } else if (followRef.current) {
       map.easeTo({
@@ -298,7 +305,7 @@ export function RideMap({ fix, follow, headingUp = false, path = [], onPositionP
     const map = mapRef.current
     const f = latestFix.current
     if (follow && map && f) {
-      map.easeTo({ center: [f.lng, f.lat], zoom: Math.max(map.getZoom(), 16), duration: 500 })
+      map.easeTo({ center: [f.lng, f.lat], duration: 500 })
     }
   }, [follow])
 
