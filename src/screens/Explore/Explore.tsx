@@ -19,6 +19,7 @@ export function Explore() {
   const user = useAuth((state) => state.user)
   const landmarks = useLandmarks((state) => state.landmarks)
   const landmarkError = useLandmarks((state) => state.error)
+  const clearLandmarkError = useLandmarks((state) => state.clearError)
   const discoverAround = useLandmarks((state) => state.discoverAround)
   const subscribe = useLandmarks((state) => state.subscribe)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -32,6 +33,12 @@ export function Explore() {
     if (!user) return
     return subscribe()
   }, [subscribe, user])
+
+  useEffect(() => {
+    if (!landmarkError) return
+    const timeout = setTimeout(clearLandmarkError, 5000)
+    return () => clearTimeout(timeout)
+  }, [clearLandmarkError, landmarkError])
 
   useEffect(() => {
     if (!user || !exploredLoaded) return

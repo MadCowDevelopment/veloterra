@@ -5,6 +5,7 @@ import { LANDMARK_CATEGORY_LABELS, landmarkProgress, landmarkState, type Landmar
 import { useAuth } from '../state/auth'
 import { useLandmarks, type LandmarkContributor } from '../state/landmarks'
 import { useWallet } from '../state/wallet'
+import { loadWikimediaImage, type WikimediaImage } from '../lib/wikimedia'
 import './LandmarkPanel.css'
 
 interface Props {
@@ -19,6 +20,7 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
   const loadContributors = useLandmarks((state) => state.loadContributors)
   const [amount, setAmount] = useState('')
   const [contributors, setContributors] = useState<LandmarkContributor[]>([])
+  const [image, setImage] = useState<WikimediaImage | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const idempotencyKeyRef = useRef<string | null>(null)
@@ -44,6 +46,16 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
     if (!user) return
     loadContributors(landmark.id).then(setContributors).catch(() => setContributors([]))
   }, [landmark.id, landmark.totalContributed, loadContributors, user])
+
+  useEffect(() => {
+    setImage(null)
+    if (state !== 'restored' || !landmark.wikidata) return
+    let cancelled = false
+    loadWikimediaImage(landmark.wikidata).then((result) => {
+      if (!cancelled) setImage(result)
+    })
+    return () => { cancelled = true }
+  }, [landmark.id, landmark.wikidata, state])
 
   const submit = async () => {
     setSubmitting(true)
@@ -72,13 +84,24 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
       <h2>{landmark.name}</h2>
       <p>{LANDMARK_CATEGORY_LABELS[landmark.category]} · Tier {landmark.tier}</p>
 
+      {image && (
+        <figure className="landmark-panel__image">
+          <a href={image.pageUrl} target="_blank" rel="noreferrer">
+            <img src={image.src} alt={landmark.name} />
+          </a>
+          <figcaption>
+            {[image.artist && `Photo: ${image.artist}`, image.license, 'Wikimedia Commons'].filter(Boolean).join(' · ')}
+          </figcaption>
+        </figure>
+      )}
+
       <div className="landmark-panel__progress" aria-label={`${Math.round(progress * 100)}% restored`}>
         <span style={{ width: `${progress * 100}%` }} />
       </div>
       <div className="landmark-panel__totals">
-        <CoinAmount copper={landmark.totalContributed} size="sm" />
+        <CoinAmount copper={landmark.totalContributed} size="sm" goldOnly />
         <span>of</span>
-        <CoinAmount copper={landmark.costCopper} size="sm" />
+        <CoinAmount copper={landmark.costCopper} size="sm" goldOnly />
       </div>
 
       {state !== 'restored' && user && (
@@ -105,7 +128,7 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
               {submitting ? 'Contributing…' : 'Contribute'}
             </button>
           </div>
-          <small>Available: <CoinAmount copper={balance} size="sm" /></small>
+          <small>Available: <CoinAmount copper={balance} size="sm" goldOnly /></small>
         </div>
       )}
       {error && <p className="landmark-panel__error" role="alert">{error}</p>}
@@ -115,7 +138,7 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
           {contributors.map((contributor) => (
             <div key={contributor.userId}>
               <span>{contributor.displayName}</span>
-              <CoinAmount copper={contributor.amount} size="sm" />
+              <CoinAmount copper={contributor.amount} size="sm" goldOnly />
             </div>
           ))}
         </div>

@@ -130,7 +130,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
         paint: {
           'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 1, 5, 8, 7, 11, 10],
           'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 1, 0.35, 8, 0.65, 11, 1],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 1, 0.85, 11, 0.7, DETAIL_ZOOM, 0],
+          'heatmap-opacity': 0.85,
           'heatmap-color': [
             'interpolate',
             ['linear'],

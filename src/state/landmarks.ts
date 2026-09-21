@@ -41,6 +41,7 @@ interface LandmarkStore {
   loading: boolean
   revision: number
   error: string | null
+  clearError: () => void
   loadBounds: (bounds: LandmarkBounds) => Promise<boolean>
   discoverAround: (latitude: number, longitude: number) => Promise<boolean>
   contribute: (landmarkId: string, amount: number, idempotencyKey?: string) => Promise<number>
@@ -105,6 +106,7 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
   loading: false,
   revision: 0,
   error: null,
+  clearError: () => set({ error: null }),
 
   loadBounds: async (bounds) => {
     if (!useAuth.getState().user) {
