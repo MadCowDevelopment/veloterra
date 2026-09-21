@@ -38,9 +38,9 @@ export interface LandmarkContributor {
 interface LandmarkStore {
   landmarks: Landmark[]
   loading: boolean
-  discovering: boolean
   error: string | null
-  loadBounds: (bounds: LandmarkBounds, discover?: boolean) => Promise<boolean>
+  loadBounds: (bounds: LandmarkBounds) => Promise<boolean>
+  discoverAround: (latitude: number, longitude: number) => Promise<void>
   contribute: (landmarkId: string, amount: number, idempotencyKey?: string) => Promise<number>
   loadContributors: (landmarkId: string) => Promise<LandmarkContributor[]>
   subscribe: () => () => void
@@ -80,6 +80,9 @@ async function syncProfile() {
 }
 
 let syncedProfileUserId: string | null = null
+const discoveredRideAreas = new Set<string>()
+const discoveringRideAreas = new Set<string>()
+const DISCOVERY_AREA_STEP = 0.02
 
 function requiredSafeInteger(value: number | string, field: string): number {
   const parsed = Number(value)
@@ -98,10 +101,9 @@ async function errorMessage(error: unknown): Promise<string> {
 export const useLandmarks = create<LandmarkStore>((set, get) => ({
   landmarks: [],
   loading: false,
-  discovering: false,
   error: null,
 
-  loadBounds: async (bounds, discover = false) => {
+  loadBounds: async (bounds) => {
     if (!useAuth.getState().user) {
       set({ landmarks: [], loading: false, error: null })
       return false
@@ -109,12 +111,6 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
 
     set({ loading: true, error: null })
     try {
-      if (discover) {
-        set({ discovering: true })
-        const { error } = await supabase.functions.invoke('discover-landmarks', { body: bounds })
-        if (error) throw error
-      }
-
       const { data, error } = await supabase
         .from('landmarks')
         .select('id,name,category,tier,scope_multiplier,cost_copper,total_contributed,latitude,longitude,wikidata,wikipedia,restored_at')
@@ -131,7 +127,31 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
       set({ error: await errorMessage(error) })
       return false
     } finally {
-      set({ loading: false, discovering: false })
+      set({ loading: false })
+    }
+  },
+
+  discoverAround: async (latitude, longitude) => {
+    if (!useAuth.getState().user) return
+    const area = `${Math.round(latitude / DISCOVERY_AREA_STEP)}:${Math.round(longitude / DISCOVERY_AREA_STEP)}`
+    if (discoveredRideAreas.has(area) || discoveringRideAreas.has(area)) return
+
+    discoveringRideAreas.add(area)
+    try {
+      const { error } = await supabase.functions.invoke('discover-landmarks', {
+        body: {
+          west: Math.max(-180, longitude - 0.01),
+          south: Math.max(-90, latitude - 0.012),
+          east: Math.min(180, longitude + 0.01),
+          north: Math.min(90, latitude + 0.012),
+        },
+      })
+      if (error) throw error
+      discoveredRideAreas.add(area)
+    } catch (error) {
+      set({ error: await errorMessage(error) })
+    } finally {
+      discoveringRideAreas.delete(area)
     }
   },
 

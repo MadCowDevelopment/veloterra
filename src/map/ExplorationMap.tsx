@@ -15,43 +15,13 @@ interface Props {
   onSelectLandmark: (landmark: Landmark) => void
 }
 
-const discoveredAreas = new Set<string>()
-const discoveringAreas = new Set<string>()
-const DISCOVERY_AREA_STEP = 0.02
-
-function areaKey(map: MlMap): string {
-  const center = map.getCenter()
-  return `${Math.round(center.lat / DISCOVERY_AREA_STEP)}:${Math.round(center.lng / DISCOVERY_AREA_STEP)}`
-}
-
 function visibleBounds(map: MlMap): LandmarkBounds {
   const bounds = map.getBounds()
   return { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() }
 }
 
-function discoveryBounds(map: MlMap): LandmarkBounds {
-  const { lng, lat } = map.getCenter()
-  return {
-    west: Math.max(-180, lng - 0.04),
-    south: Math.max(-90, lat - 0.03),
-    east: Math.min(180, lng + 0.04),
-    north: Math.min(90, lat + 0.03),
-  }
-}
-
-function activeLandmarks(landmarks: Landmark[]): Landmark[] {
-  const visible = landmarks.filter((landmark) => landmark.tier > 1 || landmark.totalContributed > 0)
-  const untouchedLocalByArea = new Map<string, Landmark>()
-  for (const landmark of landmarks) {
-    if (landmark.tier !== 1 || landmark.totalContributed > 0) continue
-    const area = latLngToCell(landmark.latitude, landmark.longitude, 7)
-    const current = untouchedLocalByArea.get(area)
-    if (!current || landmark.scopeMultiplier > current.scopeMultiplier
-      || (landmark.scopeMultiplier === current.scopeMultiplier && landmark.name < current.name)) {
-      untouchedLocalByArea.set(area, landmark)
-    }
-  }
-  return [...visible, ...untouchedLocalByArea.values()]
+function activeLandmarks(landmarks: Landmark[], exploredCells: Map<string, unknown>): Landmark[] {
+  return landmarks.filter((landmark) => exploredCells.has(latLngToCell(landmark.latitude, landmark.longitude, HEX_RES)))
 }
 
 export function ExplorationMap({ onSelectLandmark }: Props) {
@@ -109,7 +79,10 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
   }, [cells, revision])
   const dataRef = useRef(data)
   dataRef.current = data
-  const displayedLandmarks = useMemo(() => activeLandmarks(landmarks), [landmarks])
+  const displayedLandmarks = useMemo(
+    () => activeLandmarks(landmarks, cells),
+    [cells, landmarks, revision],
+  )
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -220,16 +193,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
 
     const refreshLandmarks = () => {
       if (!userRef.current || map.getZoom() < 10) return
-      const key = areaKey(map)
-      const discover = map.getZoom() >= 12 && !discoveredAreas.has(key) && !discoveringAreas.has(key)
-      if (!discover) {
-        void loadLandmarksRef.current(visibleBounds(map))
-        return
-      }
-      discoveringAreas.add(key)
-      void loadLandmarksRef.current(discoveryBounds(map), true)
-        .then((success) => { if (success) discoveredAreas.add(key) })
-        .finally(() => discoveringAreas.delete(key))
+      void loadLandmarksRef.current(visibleBounds(map))
     }
     map.on('moveend', refreshLandmarks)
 
@@ -256,16 +220,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
   useEffect(() => {
     const map = mapRef.current
     if (!map || !user || map.getZoom() < 10) return
-    const key = areaKey(map)
-    const discover = map.getZoom() >= 12 && !discoveredAreas.has(key) && !discoveringAreas.has(key)
-    if (!discover) {
-      void loadLandmarks(visibleBounds(map))
-      return
-    }
-    discoveringAreas.add(key)
-    void loadLandmarks(discoveryBounds(map), true)
-      .then((success) => { if (success) discoveredAreas.add(key) })
-      .finally(() => discoveringAreas.delete(key))
+    void loadLandmarks(visibleBounds(map))
   }, [loadLandmarks, user])
 
   useEffect(() => {

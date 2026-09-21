@@ -11,12 +11,12 @@ VeloTerra needs a shared coin sink based on real-world landmarks. All authentica
 
 ## Decision
 
-- Discover named landmark candidates on demand through an authenticated Supabase Edge Function.
+- Discover named landmark candidates around newly explored areas during authenticated, non-simulated rides through a Supabase Edge Function. Map browsing never triggers discovery.
 - Exclude wayside crosses and shrines from the initial catalog.
 - Normalize OSM tags into 20 controlled categories and four significance tiers.
 - Prefer Wikidata identity when available; otherwise use the OSM element type and identifier.
 - Assign and persist category, tier, multiplier, and restoration cost when a landmark is first inserted.
-- Show every significant or active project, but only one untouched local project per H3 resolution-7 area. Completing it reveals the next local candidate.
+- Show all cataloged landmarks whose resolution-11 H3 cell the current rider has explored. Zoom and viewport changes affect rendering and reads, not project eligibility.
 - Store global totals and an immutable contribution ledger in Supabase.
 - Apply contributions through one idempotent transaction that locks wallet and landmark rows.
 - Represent wallet state as monotonic lifetime earnings minus server-authoritative spending.
@@ -25,7 +25,7 @@ VeloTerra needs a shared coin sink based on real-world landmarks. All authentica
 ## Consequences
 
 - Concurrent contributions cannot overspend a wallet or exceed a landmark cost.
-- Offline ride tracking remains available, but restoration discovery and contributions require authentication and connectivity.
+- Offline ride tracking remains available, but restoration discovery and contributions require authentication and connectivity. A ride completed offline can reveal terrain without immediately adding new global projects.
 - Catalog quality depends on OSM tagging and the versioned classifier.
 - Existing landmark prices do not change when OSM tags or balancing constants change.
 - The service-role credential is confined to the Edge Function.

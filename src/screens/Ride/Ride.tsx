@@ -6,6 +6,7 @@ import { useWakeLock } from '../../hooks/useWakeLock'
 import { haversine, formatDistance, formatDuration, type LngLat } from '../../lib/geo'
 import { useWallet } from '../../state/wallet'
 import { useExplored } from '../../state/explored'
+import { useLandmarks } from '../../state/landmarks'
 import { MAX_ACCURACY_M } from '../../domain/economy'
 import { CoinAmount } from '../../components/CoinAmount'
 import { MapStylePicker } from '../../components/MapStylePicker'
@@ -52,6 +53,7 @@ export function Ride() {
   const finishRideStat = useWallet((s) => s.finishRide)
   const loadExplored = useExplored((s) => s.load)
   const reveal = useExplored((s) => s.reveal)
+  const discoverLandmarks = useLandmarks((s) => s.discoverAround)
 
   // Load previously explored cells so the fog reflects past rides.
   useEffect(() => {
@@ -86,7 +88,10 @@ export function Ride() {
     lastPoint.current = point
 
     const { coins, newCells } = reveal(fix)
-    if (newCells > 0) setNewCellsThisRide((n) => n + newCells)
+    if (newCells > 0) {
+      setNewCellsThisRide((n) => n + newCells)
+      if (!simulated) void discoverLandmarks(fix.lat, fix.lng)
+    }
     if (coins > 0) {
       addCoins(coins)
       setCoinsThisRide((c) => c + coins)
@@ -94,7 +99,7 @@ export function Ride() {
       setPops((p) => [...p, { id, amount: coins }])
       setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 1100)
     }
-  }, [fix, phase, reveal, addCoins, addDistance])
+  }, [fix, phase, reveal, addCoins, addDistance, discoverLandmarks, simulated])
 
   const elapsed =
     elapsedMs +

@@ -15,7 +15,6 @@ export function Explore() {
   const revision = useExplored((state) => state.revision)
   const user = useAuth((state) => state.user)
   const landmarks = useLandmarks((state) => state.landmarks)
-  const discovering = useLandmarks((state) => state.discovering)
   const landmarkError = useLandmarks((state) => state.error)
   const subscribe = useLandmarks((state) => state.subscribe)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -43,8 +42,7 @@ export function Explore() {
       <div className="explore__controls">
         <MapStylePicker />
       </div>
-      {user && discovering && <div className="explore__landmark-status">Discovering landmarks…</div>}
-      {user && !discovering && landmarkError && (
+      {user && landmarkError && (
         <div className="explore__landmark-status explore__landmark-status--error">{landmarkError}</div>
       )}
       {!user && <div className="explore__landmark-status">Sign in to see global restorations.</div>}
