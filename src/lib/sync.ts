@@ -94,19 +94,20 @@ export async function syncNow(): Promise<void> {
       .upsert({ user_id: uid, cells: [...cellSet], updated_at: nowIso })
     if (missing.length) await useExplored.getState().reload()
 
-    // --- Wallet: keep the larger of each accumulating counter ---
+    // --- Wallet: earnings merge monotonically; cloud spending is authoritative ---
     const w = useWallet.getState()
-    const { data: cw } = await supabase.from('wallet').select('*').eq('user_id', uid).maybeSingle()
-    const balance = Math.max(w.balance, Number(cw?.balance ?? 0))
-    const totalDistanceM = Math.max(w.totalDistanceM, Number(cw?.total_distance_m ?? 0))
-    const ridesCount = Math.max(w.ridesCount, Number(cw?.rides_count ?? 0))
-    useWallet.setState({ balance, totalDistanceM, ridesCount })
-    await supabase.from('wallet').upsert({
-      user_id: uid,
-      balance,
-      total_distance_m: totalDistanceM,
-      rides_count: ridesCount,
-      updated_at: nowIso,
+    const { data: cw, error: walletError } = await supabase.rpc('sync_wallet_progress', {
+      p_lifetime_earned: w.lifetimeEarned,
+      p_total_distance_m: w.totalDistanceM,
+      p_rides_count: w.ridesCount,
+    })
+    if (walletError) throw walletError
+    const lifetimeEarned = Number(cw.lifetime_earned)
+    const spent = Number(cw.spent)
+    useWallet.getState().applyCloudBalance(lifetimeEarned, spent)
+    useWallet.setState({
+      totalDistanceM: Number(cw.total_distance_m),
+      ridesCount: Number(cw.rides_count),
     })
 
     // --- Rides: union by id ---

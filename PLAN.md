@@ -14,13 +14,6 @@ This file collects future requirements, product ideas, experiments, and unresolv
 - Apply the selection consistently to live rides, summaries, history, and wallet statistics.
 - Keep persisted distance in meters; convert only for presentation.
 
-### Coin-Spending Game
-
-- Define the first useful way to spend earned currency.
-- Keep game state separate from ride tracking and exploration state.
-- Replace the counter-only wallet with an auditable ledger before supporting spending or multi-device game progress.
-- Decide the initial direction: town builder, RPG, or idle progression.
-
 ### User Manual
 
 - Add `MANUAL.md` for installation, permissions, ride controls, offline preparation, account/sync behavior, and local reset.
@@ -67,7 +60,6 @@ This file collects future requirements, product ideas, experiments, and unresolv
 - Add automated unit tests for economy, H3 migration, fog geometry, tile enumeration, currency conversion, and synchronization mapping.
 - Add browser smoke tests for routing, ride simulation, reveal, summaries, and map worker loading.
 - Repair the standalone `npm run typecheck` command.
-- Version Supabase schema and RLS policies in repository migrations.
 - Check every Supabase result for returned errors.
 - Stop suppressing IndexedDB persistence failures and add retry/recovery behavior.
 - Isolate simulated development progress from real local data.
@@ -76,17 +68,16 @@ This file collects future requirements, product ideas, experiments, and unresolv
 
 ## Open Product Questions
 
-1. What is the first satisfying coin-spending loop?
-2. Which metric/imperial default should be selected from browser locale, if any?
-3. How should automatic area completion work, and should it grant rewards?
-4. Which social-map visibility model is acceptable?
-5. Is background tracking valuable enough to justify a separately distributed Android build?
-6. What offline storage size and retention expectations are reasonable for typical devices?
+1. Which metric/imperial default should be selected from browser locale, if any?
+2. How should automatic area completion work, and should it grant rewards?
+3. Which social-map visibility model is acceptable?
+4. Is background tracking valuable enough to justify a separately distributed Android build?
+5. What offline storage size and retention expectations are reasonable for typical devices?
 
 ## Prioritization
 
 1. Protect correctness with tests and versioned cloud schema.
 2. Add units and user documentation.
-3. Design the wallet ledger and coin-spending game.
+3. Deploy and tune collaborative landmark restoration.
 4. Prototype exploration visualization/completion improvements.
 5. Revisit social and native-background features only after privacy and operational requirements are explicit.
