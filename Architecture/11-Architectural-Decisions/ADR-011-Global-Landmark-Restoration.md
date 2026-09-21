@@ -16,6 +16,7 @@ VeloTerra needs a shared coin sink based on real-world landmarks. All authentica
 - Exclude wayside crosses and shrines from the initial catalog.
 - Normalize OSM tags into 20 controlled categories and four significance tiers.
 - Prefer Wikidata identity when available; otherwise use the OSM element type and identifier.
+- Treat Wikidata as identity evidence, not significance evidence. Higher tiers require heritage or Wikipedia signals, except for explicit global overrides.
 - Assign and persist category, tier, multiplier, and restoration cost when a landmark is first inserted.
 - Show all cataloged landmarks whose resolution-11 H3 cell the current rider has explored. Zoom and viewport changes affect rendering and reads, not project eligibility.
 - Store global totals and an immutable contribution ledger in Supabase.
@@ -28,6 +29,6 @@ VeloTerra needs a shared coin sink based on real-world landmarks. All authentica
 - Concurrent contributions cannot overspend a wallet or exceed a landmark cost.
 - Offline ride tracking remains available, but restoration discovery and contributions require authentication and connectivity. A ride completed offline can reveal terrain without immediately adding new global projects.
 - Catalog quality depends on OSM tagging and the versioned classifier.
-- Existing landmark prices do not change when OSM tags or balancing constants change.
+- Existing prices remain stable unless an explicit classifier migration rebalances them. A migration never reduces cost below the amount already contributed.
 - The service-role credential is confined to the Edge Function.
 - Client-asserted ride earnings remain an integrity limitation until server-verifiable earning is introduced.

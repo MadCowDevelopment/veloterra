@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 const TIER_BASE_COPPER = [10_000, 100_000, 1_000_000, 5_000_000] as const
-const CLASSIFICATION_VERSION = 1
+const CLASSIFICATION_VERSION = 2
 const MAX_SPAN_DEGREES = 0.16
 const DISCOVERY_AREA_STEP = 0.02
 const OVERPASS_ENDPOINTS = [
@@ -89,7 +89,7 @@ function tierFor(tags: Tags): 1 | 2 | 3 | 4 {
   if (tags.wikidata && GLOBAL_OVERRIDES[tags.wikidata]) return 4
   if (tags['ref:whc'] || tags.heritage === '1') return 4
   if (tags.heritage === '2' || tags.heritage === '3') return 3
-  if (tags.heritage || tags.wikipedia || tags.wikidata) return 2
+  if (tags.heritage || tags.wikipedia) return 2
   return 1
 }
 
