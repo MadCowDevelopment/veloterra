@@ -12,7 +12,14 @@ import { useAuth } from '../state/auth'
 import { syncNow } from '../lib/sync'
 
 const buildTime = new Date(__BUILD_TIMESTAMP__)
-const buildLabel = `${__BUILD_REVISION__} · ${buildTime.toISOString().slice(0, 16).replace('T', ' ')}Z`
+const buildLabel = `${__BUILD_REVISION__} · ${buildTime.toLocaleString(undefined, {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})}`
 
 export function App() {
   const user = useAuth((s) => s.user)
@@ -44,7 +51,7 @@ export function App() {
         <Route path="/rides" element={<RidesHistory />} />
         <Route path="/rides/:id" element={<RideSummary />} />
       </Routes>
-      <time className="build-stamp" dateTime={__BUILD_TIMESTAMP__} title={`Built ${__BUILD_TIMESTAMP__}`}>
+      <time className="build-stamp" dateTime={__BUILD_TIMESTAMP__} title={`Built ${buildTime.toString()}`}>
         {buildLabel}
       </time>
     </>
