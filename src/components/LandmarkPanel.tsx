@@ -35,10 +35,10 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
     && requestedGold <= maximumGold
 
   useEffect(() => {
-    setAmount(canContribute ? '1' : '')
+    setAmount(canContribute ? String(maximumGold) : '')
     idempotencyKeyRef.current = null
     setError(null)
-  }, [canContribute, landmark.id])
+  }, [canContribute, landmark.id, maximumGold])
 
   useEffect(() => {
     if (!user) return

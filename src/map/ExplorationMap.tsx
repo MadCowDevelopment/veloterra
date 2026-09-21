@@ -15,6 +15,8 @@ interface Props {
   onSelectLandmark: (landmark: Landmark) => void
 }
 
+const DETAIL_ZOOM = 12
+
 function visibleBounds(map: MlMap): LandmarkBounds {
   const bounds = map.getBounds()
   return { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() }
@@ -35,11 +37,18 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
   const landmarkRevision = useLandmarks((state) => state.revision)
   const loadLandmarks = useLandmarks((state) => state.loadBounds)
   const mapStyle = usePrefs((state) => state.mapStyle)
+  const exploreMapCenter = usePrefs((state) => state.exploreMapCenter)
+  const exploreMapZoom = usePrefs((state) => state.exploreMapZoom)
+  const setExploreMapView = usePrefs((state) => state.setExploreMapView)
   const styleIdRef = useRef(mapStyle)
+  const exploreMapCenterRef = useRef(exploreMapCenter)
+  const exploreMapZoomRef = useRef(exploreMapZoom)
+  const setExploreMapViewRef = useRef(setExploreMapView)
   const userRef = useRef(user)
   const loadLandmarksRef = useRef(loadLandmarks)
   const onSelectLandmarkRef = useRef(onSelectLandmark)
   userRef.current = user
+  setExploreMapViewRef.current = setExploreMapView
   loadLandmarksRef.current = loadLandmarks
   onSelectLandmarkRef.current = onSelectLandmark
 
@@ -91,8 +100,8 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
     const map = new MlMap({
       container: containerRef.current,
       style: styleUrl(styleIdRef.current),
-      center: [10, 28],
-      zoom: 1.4,
+      center: exploreMapCenterRef.current,
+      zoom: exploreMapZoomRef.current,
       minZoom: 1,
       attributionControl: { compact: true },
     })
@@ -112,51 +121,33 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
       map.addSource('explored-points', {
         type: 'geojson',
         data: dataRef.current.points,
-        cluster: true,
-        clusterMaxZoom: 12,
-        clusterRadius: 48,
       })
       map.addLayer({
-        id: 'explored-clusters',
-        type: 'circle',
+        id: 'explored-overview',
+        type: 'heatmap',
         source: 'explored-points',
-        filter: ['has', 'point_count'],
-        maxzoom: 13,
+        maxzoom: DETAIL_ZOOM,
         paint: {
-          'circle-color': ['step', ['get', 'point_count'], '#22e3c4', 100, '#ffd257', 1000, '#ff7a68'],
-          'circle-radius': ['step', ['get', 'point_count'], 17, 100, 22, 1000, 28],
-          'circle-stroke-width': 3,
-          'circle-stroke-color': 'rgba(5, 7, 13, 0.8)',
-        },
-      })
-      map.addLayer({
-        id: 'explored-cluster-count',
-        type: 'symbol',
-        source: 'explored-points',
-        filter: ['has', 'point_count'],
-        maxzoom: 13,
-        layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-size': 12 },
-        paint: { 'text-color': '#04140f' },
-      })
-      map.addLayer({
-        id: 'explored-points',
-        type: 'circle',
-        source: 'explored-points',
-        filter: ['!', ['has', 'point_count']],
-        minzoom: 10,
-        maxzoom: 13,
-        paint: {
-          'circle-color': '#22e3c4',
-          'circle-radius': 4,
-          'circle-stroke-width': 1,
-          'circle-stroke-color': '#04140f',
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 1, 5, 8, 7, 11, 10],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 1, 0.35, 8, 0.65, 11, 1],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 1, 0.85, 11, 0.7, DETAIL_ZOOM, 0],
+          'heatmap-color': [
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            0, 'rgba(34, 227, 196, 0)',
+            0.18, 'rgba(34, 227, 196, 0.35)',
+            0.5, 'rgba(34, 227, 196, 0.75)',
+            0.8, '#b9fff4',
+            1, '#ffd257',
+          ],
         },
       })
       map.addLayer({
         id: 'explored-hexes',
         type: 'fill',
         source: 'explored-polygons',
-        minzoom: 12,
+        minzoom: DETAIL_ZOOM,
         paint: {
           'fill-color': ['interpolate', ['linear'], ['get', 'visits'], 1, '#22e3c4', 5, '#ffd257', 20, '#ff7a68'],
           'fill-opacity': 0.58,
@@ -165,13 +156,6 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
       })
     })
 
-    map.on('click', 'explored-clusters', async (event) => {
-      const feature = event.features?.[0]
-      if (!feature || feature.geometry.type !== 'Point') return
-      const clusterId = Number(feature.properties?.cluster_id)
-      const zoom = await (map.getSource('explored-points') as GeoJSONSource).getClusterExpansionZoom(clusterId)
-      map.easeTo({ center: feature.geometry.coordinates as [number, number], zoom, duration: 500 })
-    })
     map.on('click', 'explored-hexes', (event) => {
       const properties = event.features?.[0]?.properties
       if (!properties) return
@@ -181,19 +165,19 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
         .setHTML(`<strong>${properties.visits} visit${properties.visits === 1 ? '' : 's'}</strong><br><span>First explored ${visited}</span>`)
         .addTo(map)
     })
-    map.on('mouseenter', 'explored-clusters', () => { map.getCanvas().style.cursor = 'pointer' })
-    map.on('mouseleave', 'explored-clusters', () => { map.getCanvas().style.cursor = '' })
     map.on('mouseenter', 'explored-hexes', () => { map.getCanvas().style.cursor = 'pointer' })
     map.on('mouseleave', 'explored-hexes', () => { map.getCanvas().style.cursor = '' })
 
     const updateLandmarkVisibility = () => {
-      map.getContainer().classList.toggle('exploration-map--landmarks-hidden', map.getZoom() < 10)
+      map.getContainer().classList.toggle('exploration-map--landmarks-hidden', map.getZoom() < DETAIL_ZOOM)
     }
     updateLandmarkVisibility()
     map.on('zoom', updateLandmarkVisibility)
 
     const refreshLandmarks = () => {
-      if (!userRef.current || map.getZoom() < 10) return
+      const center = map.getCenter()
+      setExploreMapViewRef.current([center.lng, center.lat], map.getZoom())
+      if (!userRef.current || map.getZoom() < DETAIL_ZOOM) return
       void loadLandmarksRef.current(visibleBounds(map))
     }
     map.on('moveend', refreshLandmarks)
@@ -220,7 +204,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !user || map.getZoom() < 10) return
+    if (!map || !user || map.getZoom() < DETAIL_ZOOM) return
     void loadLandmarks(visibleBounds(map))
   }, [landmarkRevision, loadLandmarks, user])
 
