@@ -40,7 +40,7 @@ interface LandmarkStore {
   loading: boolean
   discovering: boolean
   error: string | null
-  loadBounds: (bounds: LandmarkBounds, discover?: boolean) => Promise<void>
+  loadBounds: (bounds: LandmarkBounds, discover?: boolean) => Promise<boolean>
   contribute: (landmarkId: string, amount: number, idempotencyKey?: string) => Promise<number>
   loadContributors: (landmarkId: string) => Promise<LandmarkContributor[]>
   subscribe: () => () => void
@@ -87,6 +87,14 @@ function requiredSafeInteger(value: number | string, field: string): number {
   return parsed
 }
 
+async function errorMessage(error: unknown): Promise<string> {
+  if (error && typeof error === 'object' && 'context' in error && error.context instanceof Response) {
+    const body = await error.context.clone().json().catch(() => null) as { error?: unknown } | null
+    if (typeof body?.error === 'string') return body.error
+  }
+  return error instanceof Error ? error.message : 'Could not load landmarks'
+}
+
 export const useLandmarks = create<LandmarkStore>((set, get) => ({
   landmarks: [],
   loading: false,
@@ -96,7 +104,7 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
   loadBounds: async (bounds, discover = false) => {
     if (!useAuth.getState().user) {
       set({ landmarks: [], loading: false, error: null })
-      return
+      return false
     }
 
     set({ loading: true, error: null })
@@ -118,8 +126,10 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
         .limit(500)
       if (error) throw error
       set({ landmarks: (data as LandmarkRow[]).map(fromRow) })
+      return true
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Could not load landmarks' })
+      set({ error: await errorMessage(error) })
+      return false
     } finally {
       set({ loading: false, discovering: false })
     }

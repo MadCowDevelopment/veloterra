@@ -8,6 +8,10 @@ const corsHeaders = {
 const TIER_BASE_COPPER = [10_000, 100_000, 1_000_000, 5_000_000] as const
 const CLASSIFICATION_VERSION = 1
 const MAX_SPAN_DEGREES = 0.16
+const OVERPASS_ENDPOINTS = [
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+]
 const GLOBAL_OVERRIDES: Record<string, { tier: 4; scopeMultiplier: 10 }> = {
   Q10285: { tier: 4, scopeMultiplier: 10 }, // Colosseum
 }
@@ -91,6 +95,28 @@ function buildQuery({ south, west, north, east }: Bounds): string {
   );out center tags;`
 }
 
+async function queryOverpass(bounds: Bounds): Promise<{ elements: OverpassElement[] }> {
+  const failures: string[] = []
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'VeloTerra/0.1 landmark discovery',
+        },
+        body: new URLSearchParams({ data: buildQuery(bounds) }),
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (response.ok) return await response.json() as { elements: OverpassElement[] }
+      failures.push(`${new URL(endpoint).host}: ${response.status}`)
+    } catch (error) {
+      failures.push(`${new URL(endpoint).host}: ${error instanceof Error ? error.message : 'request failed'}`)
+    }
+  }
+  throw new Error(`OpenStreetMap query failed (${failures.join(', ')})`)
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: corsHeaders })
@@ -128,16 +154,18 @@ Deno.serve(async (request) => {
       return Response.json({ discovered: 0, cached: true }, { headers: corsHeaders })
     }
 
-    const overpassResponse = await fetch('https://overpass.kumi.systems/api/interpreter', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'VeloTerra/0.1 landmark discovery',
-      },
-      body: new URLSearchParams({ data: buildQuery(bounds) }),
-    })
-    if (!overpassResponse.ok) throw new Error(`OpenStreetMap query failed (${overpassResponse.status})`)
-    const payload = await overpassResponse.json() as { elements: OverpassElement[] }
+    let payload: { elements: OverpassElement[] }
+    try {
+      payload = await queryOverpass(bounds)
+    } catch (error) {
+      await adminClient
+        .from('landmark_discovery_requests')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('area_key', areaKey)
+        .eq('request_day', new Date().toISOString().slice(0, 10))
+      throw error
+    }
 
     const rows = payload.elements.flatMap((element) => {
       const tags = element.tags
@@ -167,16 +195,32 @@ Deno.serve(async (request) => {
     })
 
     const uniqueRows = [...new Map(rows.map((row) => [row.canonical_key, row])).values()]
-    const { error } = await adminClient.from('landmarks').upsert(uniqueRows, {
-      onConflict: 'canonical_key',
-      ignoreDuplicates: true,
-    })
-    if (error) throw error
+    if (uniqueRows.length > 0) {
+      const { error } = await adminClient.from('landmarks').upsert(uniqueRows, {
+        onConflict: 'canonical_key',
+        ignoreDuplicates: true,
+      })
+      if (error) {
+        await adminClient
+          .from('landmark_discovery_requests')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('area_key', areaKey)
+          .eq('request_day', new Date().toISOString().slice(0, 10))
+        throw error
+      }
+    }
 
     return Response.json({ discovered: uniqueRows.length }, { headers: corsHeaders })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Landmark discovery failed'
-    const status = message === 'Authentication required' ? 401 : 400
+    const status = message === 'Authentication required'
+      ? 401
+      : message === 'Daily landmark discovery limit reached'
+        ? 429
+        : message.startsWith('OpenStreetMap query failed')
+          ? 502
+          : 400
     return Response.json({ error: message }, { status, headers: corsHeaders })
   }
 })

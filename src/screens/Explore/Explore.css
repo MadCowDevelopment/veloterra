@@ -192,3 +192,8 @@
   transform: rotate(45deg);
   background: #ffd257;
 }
+
+.explore__landmark-status--error {
+  color: #ffb4a9;
+  border-color: rgba(255, 122, 104, 0.45);
+}

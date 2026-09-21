@@ -16,6 +16,12 @@ interface Props {
 }
 
 const discoveredAreas = new Set<string>()
+const discoveringAreas = new Set<string>()
+
+function areaKey(map: MlMap): string {
+  const center = map.getCenter()
+  return `${Math.round(center.lat / 0.04)}:${Math.round(center.lng / 0.04)}`
+}
 
 function visibleBounds(map: MlMap): LandmarkBounds {
   const bounds = map.getBounds()
@@ -116,6 +122,11 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
       attributionControl: { compact: true },
     })
     mapRef.current = map
+    map.on('styleimagemissing', (event) => {
+      if (event.id === 'gate' && !map.hasImage(event.id)) {
+        map.addImage(event.id, { width: 1, height: 1, data: new Uint8Array([0, 0, 0, 0]) })
+      }
+    })
     map.addControl(
       new NavigationControl({ showCompass: true, showZoom: false, visualizePitch: false }),
       'top-right',
@@ -208,11 +219,16 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
 
     const refreshLandmarks = () => {
       if (!userRef.current || map.getZoom() < 10) return
-      const center = map.getCenter()
-      const areaKey = `${Math.round(center.lat / 0.04)}:${Math.round(center.lng / 0.04)}`
-      const discover = map.getZoom() >= 12 && !discoveredAreas.has(areaKey)
-      if (discover) discoveredAreas.add(areaKey)
-      void loadLandmarksRef.current(discover ? discoveryBounds(map) : visibleBounds(map), discover)
+      const key = areaKey(map)
+      const discover = map.getZoom() >= 12 && !discoveredAreas.has(key) && !discoveringAreas.has(key)
+      if (!discover) {
+        void loadLandmarksRef.current(visibleBounds(map))
+        return
+      }
+      discoveringAreas.add(key)
+      void loadLandmarksRef.current(discoveryBounds(map), true)
+        .then((success) => { if (success) discoveredAreas.add(key) })
+        .finally(() => discoveringAreas.delete(key))
     }
     map.on('moveend', refreshLandmarks)
 
@@ -239,7 +255,16 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
   useEffect(() => {
     const map = mapRef.current
     if (!map || !user || map.getZoom() < 10) return
-    void loadLandmarks(visibleBounds(map))
+    const key = areaKey(map)
+    const discover = map.getZoom() >= 12 && !discoveredAreas.has(key) && !discoveringAreas.has(key)
+    if (!discover) {
+      void loadLandmarks(visibleBounds(map))
+      return
+    }
+    discoveringAreas.add(key)
+    void loadLandmarks(discoveryBounds(map), true)
+      .then((success) => { if (success) discoveredAreas.add(key) })
+      .finally(() => discoveringAreas.delete(key))
   }, [loadLandmarks, user])
 
   useEffect(() => {

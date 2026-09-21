@@ -16,6 +16,7 @@ export function Explore() {
   const user = useAuth((state) => state.user)
   const landmarks = useLandmarks((state) => state.landmarks)
   const discovering = useLandmarks((state) => state.discovering)
+  const landmarkError = useLandmarks((state) => state.error)
   const subscribe = useLandmarks((state) => state.subscribe)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = landmarks.find((landmark) => landmark.id === selectedId) ?? null
@@ -43,6 +44,9 @@ export function Explore() {
         <MapStylePicker />
       </div>
       {user && discovering && <div className="explore__landmark-status">Discovering landmarks…</div>}
+      {user && !discovering && landmarkError && (
+        <div className="explore__landmark-status explore__landmark-status--error">{landmarkError}</div>
+      )}
       {!user && <div className="explore__landmark-status">Sign in to see global restorations.</div>}
       {cellCount === 0 && (
         <div className="explore__empty">Complete a ride to reveal your first place.</div>
