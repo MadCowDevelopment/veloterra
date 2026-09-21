@@ -232,6 +232,8 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
 
     landmarkMarkersRef.current = displayedLandmarks.map((landmark) => {
       const state = landmarkState(landmark)
+      const markerElement = document.createElement('div')
+      markerElement.className = 'landmark-marker-anchor'
       const element = document.createElement('button')
       element.type = 'button'
       element.className = `landmark-marker landmark-marker--${state}`
@@ -256,7 +258,8 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
         event.stopPropagation()
         onSelectLandmarkRef.current(landmark)
       })
-      return new Marker({ element, anchor: 'bottom' })
+      markerElement.append(element)
+      return new Marker({ element: markerElement, anchor: 'bottom' })
         .setLngLat([landmark.longitude, landmark.latitude])
         .addTo(map)
     })
