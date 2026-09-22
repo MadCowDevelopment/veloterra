@@ -49,13 +49,17 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
 
   useEffect(() => {
     setImage(null)
-    if (state !== 'restored' || !landmark.wikidata) return
+    if (state !== 'restored') return
     let cancelled = false
-    loadWikimediaImage(landmark.wikidata).then((result) => {
+    loadWikimediaImage({
+      wikimediaCommons: landmark.wikimediaCommons,
+      wikidata: landmark.wikidata,
+      wikipedia: landmark.wikipedia,
+    }).then((result) => {
       if (!cancelled) setImage(result)
     })
     return () => { cancelled = true }
-  }, [landmark.id, landmark.wikidata, state])
+  }, [landmark.id, landmark.wikidata, landmark.wikimediaCommons, landmark.wikipedia, state])
 
   const submit = async () => {
     setSubmitting(true)

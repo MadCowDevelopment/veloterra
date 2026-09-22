@@ -17,6 +17,7 @@ interface LandmarkRow {
   longitude: number
   wikidata: string | null
   wikipedia: string | null
+  osm_tags: Record<string, string> | null
   restored_at: string | null
 }
 
@@ -62,6 +63,7 @@ function fromRow(row: LandmarkRow): Landmark {
     longitude: Number(row.longitude),
     wikidata: row.wikidata,
     wikipedia: row.wikipedia,
+    wikimediaCommons: row.osm_tags?.wikimedia_commons ?? null,
     restoredAt: row.restored_at,
   }
 }
@@ -118,7 +120,7 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('landmarks')
-        .select('id,name,category,tier,scope_multiplier,cost_copper,total_contributed,latitude,longitude,wikidata,wikipedia,restored_at')
+        .select('id,name,category,tier,scope_multiplier,cost_copper,total_contributed,latitude,longitude,wikidata,wikipedia,osm_tags,restored_at')
         .gte('longitude', bounds.west)
         .lte('longitude', bounds.east)
         .gte('latitude', bounds.south)

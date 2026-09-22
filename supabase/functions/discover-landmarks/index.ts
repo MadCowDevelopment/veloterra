@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 const TIER_BASE_COPPER = [10_000, 100_000, 1_000_000, 5_000_000] as const
-const CLASSIFICATION_VERSION = 2
+const CLASSIFICATION_VERSION = 3
 const MAX_SPAN_DEGREES = 0.16
 const DISCOVERY_AREA_STEP = 0.02
 const OVERPASS_ENDPOINTS = [
@@ -18,6 +18,7 @@ const OVERPASS_ENDPOINTS = [
 const GLOBAL_OVERRIDES: Record<string, { tier: 4; scopeMultiplier: 10 }> = {
   Q10285: { tier: 4, scopeMultiplier: 10 }, // Colosseum
 }
+const MEDIA_REQUIRED_CATEGORIES = new Set<Category>(['bridge', 'tower', 'natural', 'garden', 'landmark'])
 
 type Tags = Record<string, string>
 type Category =
@@ -99,6 +100,11 @@ function tierFor(tags: Tags): 1 | 2 | 3 | 4 {
   if (tags.heritage === '2' || tags.heritage === '3') return 3
   if (tags.heritage || tags.wikipedia) return 2
   return 1
+}
+
+function isRelevantLandmark(category: Category, tags: Tags): boolean {
+  if (!MEDIA_REQUIRED_CATEGORIES.has(category)) return true
+  return Boolean(tags.wikidata || tags.wikipedia || tags.wikimedia_commons)
 }
 
 function buildQuery({ south, west, north, east }: Bounds): string {
@@ -278,7 +284,7 @@ Deno.serve(async (request) => {
       const longitude = element.lon ?? element.center?.lon
       if (!tags?.name || latitude === undefined || longitude === undefined) return []
       const category = categoryFor(tags)
-      if (!category) return []
+      if (!category || !isRelevantLandmark(category, tags)) return []
       const tier = tierFor(tags)
       const multiplier = GLOBAL_OVERRIDES[tags.wikidata ?? '']?.scopeMultiplier ?? scopeMultiplier(category)
       return [{

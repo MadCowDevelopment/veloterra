@@ -36,6 +36,7 @@ export interface Landmark {
   longitude: number
   wikidata: string | null
   wikipedia: string | null
+  wikimediaCommons: string | null
   restoredAt: string | null
 }
 

@@ -2,6 +2,7 @@
 
 | Version | Date | Author | Change |
 |---|---|---|---|
+| 1.9 | 2026-09-22 | VeloTerra maintainers | Added media-backed filtering for noisy landmark categories and Commons/Wikipedia image fallbacks. |
 | 1.8 | 2026-09-21 | VeloTerra maintainers | Added update-aware PWA registration so activated deployments reload the current page. |
 | 1.7 | 2026-09-21 | VeloTerra maintainers | Made landmark discovery coverage version-aware and documented the application-enforced daily quota. |
 | 1.6 | 2026-09-21 | VeloTerra maintainers | Changed landmark contribution entry to whole gold and enforced a one-gold minimum request. |
