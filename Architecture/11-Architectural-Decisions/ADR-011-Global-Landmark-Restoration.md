@@ -20,6 +20,7 @@ VeloTerra needs a shared coin sink based on real-world landmarks. All authentica
 - Require a Wikidata, Wikipedia, or Wikimedia Commons reference for noisy categories such as bridges, towers, minor natural features, notable trees, and generic attractions. Preserve contributed projects when tightening this rule.
 - Assign and persist category, tier, multiplier, and restoration cost when a landmark is first inserted.
 - Show all cataloged landmarks whose resolution-11 H3 cell the current rider has explored. Zoom and viewport changes affect rendering and reads, not project eligibility.
+- In the ride view, show a cataloged but unexplored landmark at its exact location when the rider is within 300 m. Blink its question-mark marker for the first few seconds, then leave it steady while nearby; replace it with its restoration marker when its cell is explored.
 - Store global totals and an immutable contribution ledger in Supabase.
 - Apply contributions through one idempotent transaction that locks wallet and landmark rows.
 - Represent wallet state as monotonic lifetime earnings minus server-authoritative spending.

@@ -2,6 +2,7 @@
 
 | Version | Date | Author | Change |
 |---|---|---|---|
+| 1.11 | 2026-09-23 | VeloTerra maintainers | Added nearby hidden-landmark cues in the ride view and raised discovery capacity for rides up to approximately 100 km. |
 | 1.10 | 2026-09-23 | VeloTerra maintainers | Aligned the detailed exploration overview with the ride map's fog-of-war rendering while retaining the low-zoom heatmap. |
 | 1.9 | 2026-09-22 | VeloTerra maintainers | Added media-backed filtering for noisy landmark categories and Commons/Wikipedia image fallbacks. |
 | 1.8 | 2026-09-21 | VeloTerra maintainers | Added update-aware PWA registration so activated deployments reload the current page. |

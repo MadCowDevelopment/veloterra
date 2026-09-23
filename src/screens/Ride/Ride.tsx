@@ -54,6 +54,7 @@ export function Ride() {
   const loadExplored = useExplored((s) => s.load)
   const reveal = useExplored((s) => s.reveal)
   const discoverLandmarks = useLandmarks((s) => s.discoverAround)
+  const landmarks = useLandmarks((s) => s.landmarks)
 
   // Load previously explored cells so the fog reflects past rides.
   useEffect(() => {
@@ -188,6 +189,7 @@ export function Ride() {
         follow={phase === 'tracking'}
         headingUp={headingUp}
         path={[...path.current]}
+        landmarks={landmarks}
         onPositionPick={simulated ? setSimulatedPosition : undefined}
       />
 

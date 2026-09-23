@@ -1,24 +1,36 @@
 import { useEffect, useRef } from 'react'
 import { Map as MlMap, Marker, NavigationControl, type GeoJSONSource } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { cellToLatLng, getResolution } from 'h3-js'
+import { cellToLatLng, getResolution, latLngToCell } from 'h3-js'
 import type { GeoFix } from '../hooks/useGeolocation'
 import { useExplored } from '../state/explored'
 import { usePrefs } from '../state/prefs'
 import { styleUrl } from './styles'
 import { buildFog } from '../lib/fog'
 import { HEX_RES } from '../domain/economy'
+import { haversine } from '../lib/geo'
+import { landmarkState, type Landmark } from '../domain/landmarks'
+import { constructionLandmarkIcon, restoredLandmarkIcons, unrestoredLandmarkIcon } from './landmarkIcons'
 
 interface Props {
   fix: GeoFix | null
   follow: boolean
   headingUp?: boolean
   path?: [number, number][]
+  landmarks?: Landmark[]
   onPositionPick?: (lng: number, lat: number) => void
 }
 
 const DEFAULT_MAP_CENTER: [number, number] = [10.45, 51.16]
 const DEFAULT_MAP_ZOOM = 5.5
+const LANDMARK_NOTICE_RADIUS_M = 300
+
+type RideLandmarkKind = 'mystery' | 'unrestored' | 'constructing' | 'restored'
+
+interface RideLandmarkMarker {
+  marker: Marker
+  kind: RideLandmarkKind
+}
 
 /** Bearing in degrees (0 = north, clockwise) from a → b. */
 function bearing(a: GeoFix, b: GeoFix): number {
@@ -31,10 +43,11 @@ function bearing(a: GeoFix, b: GeoFix): number {
   return ((θ * 180) / Math.PI + 360) % 360
 }
 
-export function RideMap({ fix, follow, headingUp = false, path = [], onPositionPick }: Props) {
+export function RideMap({ fix, follow, headingUp = false, path = [], landmarks = [], onPositionPick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
+  const landmarkMarkersRef = useRef(new Map<string, RideLandmarkMarker>())
   const readyRef = useRef(false)
   const centeredRef = useRef(false)
   const followRef = useRef(follow)
@@ -222,6 +235,8 @@ export function RideMap({ fix, follow, headingUp = false, path = [], onPositionP
     })
 
     return () => {
+      landmarkMarkersRef.current.forEach(({ marker }) => marker.remove())
+      landmarkMarkersRef.current.clear()
       map.remove()
       mapRef.current = null
       markerRef.current = null
@@ -258,6 +273,68 @@ export function RideMap({ fix, follow, headingUp = false, path = [], onPositionP
     updateFog()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revision])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    const exploredCells = useExplored.getState().cells
+    const desired = new Map<string, { landmark: Landmark; kind: RideLandmarkKind }>()
+    for (const landmark of landmarks) {
+      const explored = exploredCells.has(latLngToCell(landmark.latitude, landmark.longitude, HEX_RES))
+      if (explored) {
+        desired.set(landmark.id, { landmark, kind: landmarkState(landmark) })
+      } else if (fix && haversine(
+        { lat: fix.lat, lng: fix.lng },
+        { lat: landmark.latitude, lng: landmark.longitude },
+      ) <= LANDMARK_NOTICE_RADIUS_M) {
+        desired.set(landmark.id, { landmark, kind: 'mystery' })
+      }
+    }
+
+    for (const [id, entry] of landmarkMarkersRef.current) {
+      const next = desired.get(id)
+      if (!next || next.kind !== entry.kind) {
+        entry.marker.remove()
+        landmarkMarkersRef.current.delete(id)
+      }
+    }
+
+    for (const [id, { landmark, kind }] of desired) {
+      if (landmarkMarkersRef.current.has(id)) continue
+      const anchor = document.createElement('div')
+      anchor.className = 'ride-landmark-anchor'
+      const element = document.createElement('div')
+      element.className = `ride-landmark-marker ride-landmark-marker--${kind}`
+      element.setAttribute('role', 'img')
+      element.setAttribute('aria-label', kind === 'mystery' ? 'Undiscovered landmark' : landmark.name)
+      element.title = kind === 'mystery' ? 'Undiscovered landmark' : landmark.name
+
+      if (kind === 'mystery') {
+        const questionMark = document.createElement('span')
+        questionMark.textContent = '?'
+        element.append(questionMark)
+      } else {
+        const categoryIcon = document.createElement('img')
+        categoryIcon.src = kind === 'restored' ? restoredLandmarkIcons[landmark.category] : unrestoredLandmarkIcon
+        categoryIcon.alt = ''
+        element.append(categoryIcon)
+        if (kind === 'constructing') {
+          const constructionIcon = document.createElement('img')
+          constructionIcon.className = 'ride-landmark-marker__construction'
+          constructionIcon.src = constructionLandmarkIcon
+          constructionIcon.alt = ''
+          element.append(constructionIcon)
+        }
+      }
+
+      anchor.append(element)
+      const marker = new Marker({ element: anchor, anchor: 'bottom' })
+        .setLngLat([landmark.longitude, landmark.latitude])
+        .addTo(map)
+      landmarkMarkersRef.current.set(id, { marker, kind })
+    }
+  }, [fix, landmarks, revision])
 
   // Update the marker every fix; recenter once initially, then only while following.
   useEffect(() => {

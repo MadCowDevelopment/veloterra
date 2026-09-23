@@ -88,6 +88,22 @@ let syncedProfileUserId: string | null = null
 const discoveredRideAreas = new Set<string>()
 const discoveringRideAreas = new Set<string>()
 const DISCOVERY_AREA_STEP = 0.02
+let discoveryBlockedUntil = 0
+
+function nextUtcDay(): number {
+  const now = new Date()
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+}
+
+function isDailyDiscoveryLimit(error: unknown): boolean {
+  return Boolean(
+    error
+    && typeof error === 'object'
+    && 'context' in error
+    && error.context instanceof Response
+    && error.context.status === 429,
+  )
+}
 
 function requiredSafeInteger(value: number | string, field: string): number {
   const parsed = Number(value)
@@ -140,6 +156,7 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
 
   discoverAround: async (latitude, longitude) => {
     if (!useAuth.getState().user) return false
+    if (Date.now() < discoveryBlockedUntil) return false
     const area = `${Math.round(latitude / DISCOVERY_AREA_STEP)}:${Math.round(longitude / DISCOVERY_AREA_STEP)}`
     if (discoveredRideAreas.has(area) || discoveringRideAreas.has(area)) return true
 
@@ -147,19 +164,22 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
     try {
       const areaLatitude = Math.round(latitude / DISCOVERY_AREA_STEP) * DISCOVERY_AREA_STEP
       const areaLongitude = Math.round(longitude / DISCOVERY_AREA_STEP) * DISCOVERY_AREA_STEP
+      const bounds = {
+        west: Math.max(-180, areaLongitude - 0.01),
+        south: Math.max(-90, areaLatitude - 0.012),
+        east: Math.min(180, areaLongitude + 0.01),
+        north: Math.min(90, areaLatitude + 0.012),
+      }
       const { data, error } = await supabase.functions.invoke('discover-landmarks', {
-        body: {
-          west: Math.max(-180, areaLongitude - 0.01),
-          south: Math.max(-90, areaLatitude - 0.012),
-          east: Math.min(180, areaLongitude + 0.01),
-          north: Math.min(90, areaLatitude + 0.012),
-        },
+        body: bounds,
       })
       if (error) throw error
       discoveredRideAreas.add(area)
       if (Number(data?.discovered) > 0) set((state) => ({ revision: state.revision + 1 }))
+      await get().loadBounds(bounds)
       return true
     } catch (error) {
+      if (isDailyDiscoveryLimit(error)) discoveryBlockedUntil = nextUtcDay()
       set({ error: await errorMessage(error) })
       return false
     } finally {
