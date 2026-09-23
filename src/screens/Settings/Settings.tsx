@@ -49,7 +49,7 @@ export function Settings() {
         <div className="settings-map-detail__heading">
           <div>
             <div className="card__title">Explored map detail</div>
-            <p className="muted">Switch from the overview heatmap to exact hexes.</p>
+            <p className="muted">Switch from the overview heatmap to the detailed fog view.</p>
           </div>
           <output htmlFor="explore-hex-zoom">Zoom {exploreHexZoom}</output>
         </div>

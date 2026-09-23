@@ -8,6 +8,7 @@ import { useAuth } from '../state/auth'
 import { useLandmarks } from '../state/landmarks'
 import { usePrefs } from '../state/prefs'
 import { HEX_RES } from '../domain/economy'
+import { buildFog } from '../lib/fog'
 import { constructionLandmarkIcon, restoredLandmarkIcons, unrestoredLandmarkIcon } from './landmarkIcons'
 import { styleUrl } from './styles'
 
@@ -53,6 +54,29 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
   setExploreMapViewRef.current = setExploreMapView
   loadLandmarksRef.current = loadLandmarks
   onSelectLandmarkRef.current = onSelectLandmark
+
+  const updateFog = () => {
+    const map = mapRef.current
+    if (!map?.getSource('exploration-fog')) return
+    const bounds = map.getBounds()
+    const padding = 0.02
+    const visibleCells: string[] = []
+
+    for (const h3 of useExplored.getState().cells.keys()) {
+      if (getResolution(h3) !== HEX_RES) continue
+      const [latitude, longitude] = cellToLatLng(h3)
+      if (
+        latitude >= bounds.getSouth() - padding
+        && latitude <= bounds.getNorth() + padding
+        && longitude >= bounds.getWest() - padding
+        && longitude <= bounds.getEast() + padding
+      ) visibleCells.push(h3)
+    }
+
+    const { fill, edges } = buildFog(visibleCells)
+    ;(map.getSource('exploration-fog') as GeoJSONSource).setData(fill)
+    ;(map.getSource('exploration-frontier') as GeoJSONSource).setData(edges)
+  }
 
   const data = useMemo(() => {
     const rows = [...cells.values()].filter((row) => getResolution(row.h3) === HEX_RES)
@@ -124,6 +148,9 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
         type: 'geojson',
         data: dataRef.current.points,
       })
+      const fog = buildFog([])
+      map.addSource('exploration-fog', { type: 'geojson', data: fog.fill })
+      map.addSource('exploration-frontier', { type: 'geojson', data: fog.edges })
       map.addLayer({
         id: 'explored-overview',
         type: 'heatmap',
@@ -132,30 +159,49 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
         paint: {
           'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 1, 5, 8, 7, 11, 10],
           'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 1, 0.35, 8, 0.65, 11, 1],
-          'heatmap-opacity': 0.85,
+          'heatmap-opacity': 0.52,
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
             0, 'rgba(34, 227, 196, 0)',
-            0.18, 'rgba(34, 227, 196, 0.35)',
-            0.5, 'rgba(34, 227, 196, 0.75)',
-            0.8, '#b9fff4',
-            1, '#ffd257',
+            0.18, 'rgba(34, 227, 196, 0.45)',
+            0.5, 'rgba(34, 227, 196, 0.6)',
+            0.8, 'rgba(185, 255, 244, 0.68)',
+            1, 'rgba(255, 210, 87, 0.72)',
           ],
         },
       })
+      map.addLayer({
+        id: 'exploration-fog-fill',
+        type: 'fill',
+        source: 'exploration-fog',
+        paint: {
+          'fill-color': '#05070d',
+          'fill-opacity': 0.82,
+        },
+      })
+      map.addLayer({
+        id: 'exploration-frontier-line',
+        type: 'line',
+        source: 'exploration-frontier',
+        minzoom: exploreHexZoomRef.current,
+        paint: {
+          'line-color': '#22e3c4',
+          'line-width': 2,
+          'line-blur': 3,
+          'line-opacity': 0.5,
+        },
+      })
+      map.moveLayer('explored-overview')
       map.addLayer({
         id: 'explored-hexes',
         type: 'fill',
         source: 'explored-polygons',
         minzoom: exploreHexZoomRef.current,
-        paint: {
-          'fill-color': ['interpolate', ['linear'], ['get', 'visits'], 1, '#22e3c4', 5, '#ffd257', 20, '#ff7a68'],
-          'fill-opacity': 0.58,
-          'fill-outline-color': '#b9fff4',
-        },
+        paint: { 'fill-color': '#000000', 'fill-opacity': 0 },
       })
+      updateFog()
     })
 
     map.on('click', 'explored-hexes', (event) => {
@@ -175,6 +221,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
     }
     updateLandmarkVisibility()
     map.on('zoom', updateLandmarkVisibility)
+    map.on('moveend', updateFog)
 
     const refreshLandmarks = () => {
       const center = map.getCenter()
@@ -202,6 +249,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
   useEffect(() => {
     ;(mapRef.current?.getSource('explored-polygons') as GeoJSONSource | undefined)?.setData(data.polygons)
     ;(mapRef.current?.getSource('explored-points') as GeoJSONSource | undefined)?.setData(data.points)
+    updateFog()
   }, [data])
 
   useEffect(() => {
@@ -209,6 +257,8 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
     const map = mapRef.current
     if (!map?.getLayer('explored-overview') || !map.getLayer('explored-hexes')) return
     map.setLayerZoomRange('explored-overview', 0, exploreHexZoom)
+    map.setLayerZoomRange('exploration-fog-fill', 0, 24)
+    map.setLayerZoomRange('exploration-frontier-line', exploreHexZoom, 24)
     map.setLayerZoomRange('explored-hexes', exploreHexZoom, 24)
   }, [exploreHexZoom])
 

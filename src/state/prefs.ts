@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { DEFAULT_MAP_STYLE } from '../map/styles'
 
 export const EXPLORE_HEX_ZOOM_MIN = 10
 export const EXPLORE_HEX_ZOOM_MAX = 16
@@ -21,7 +22,7 @@ interface PrefsState {
 export const usePrefs = create<PrefsState>()(
   persist(
     (set) => ({
-      mapStyle: 'dark',
+      mapStyle: DEFAULT_MAP_STYLE,
       rideMapZoom: 16.5,
       exploreMapCenter: [10, 28],
       exploreMapZoom: 1.4,
