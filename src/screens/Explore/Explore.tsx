@@ -61,7 +61,10 @@ export function Explore() {
 
   return (
     <div className="explore">
-      <ExplorationMap onSelectLandmark={(landmark: Landmark) => setSelectedId(landmark.id)} />
+      <ExplorationMap
+        selectedLandmarkId={selectedId}
+        onSelectLandmark={(landmark: Landmark) => setSelectedId(landmark.id)}
+      />
       <header className="explore__header">
         <Link to="/" className="explore__back" aria-label="Back to menu">‹</Link>
         <div className="explore__title">

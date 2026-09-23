@@ -13,6 +13,7 @@ import { constructionLandmarkIcon, restoredLandmarkIcons, unrestoredLandmarkIcon
 import { styleUrl } from './styles'
 
 interface Props {
+  selectedLandmarkId: string | null
   onSelectLandmark: (landmark: Landmark) => void
 }
 
@@ -27,7 +28,7 @@ function activeLandmarks(landmarks: Landmark[], exploredCells: Map<string, unkno
   return landmarks.filter((landmark) => exploredCells.has(latLngToCell(landmark.latitude, landmark.longitude, HEX_RES)))
 }
 
-export function ExplorationMap({ onSelectLandmark }: Props) {
+export function ExplorationMap({ selectedLandmarkId, onSelectLandmark }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const landmarkMarkersRef = useRef<Marker[]>([])
@@ -276,13 +277,15 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
 
     landmarkMarkersRef.current = displayedLandmarks.map((landmark) => {
       const state = landmarkState(landmark)
+      const isSelected = landmark.id === selectedLandmarkId
       const markerElement = document.createElement('div')
-      markerElement.className = 'landmark-marker-anchor'
+      markerElement.className = `landmark-marker-anchor landmark-marker-anchor--${state}${isSelected ? ' landmark-marker-anchor--selected' : ''}`
       const element = document.createElement('button')
       element.type = 'button'
-      element.className = `landmark-marker landmark-marker--${state}`
+      element.className = `landmark-marker landmark-marker--${state}${isSelected ? ' landmark-marker--selected' : ''}`
       element.title = landmark.name
       element.setAttribute('aria-label', landmark.name)
+      element.setAttribute('aria-pressed', String(isSelected))
       element.style.setProperty('--landmark-progress', `${landmarkProgress(landmark) * 360}deg`)
 
       const categoryIcon = document.createElement('img')
@@ -307,7 +310,7 @@ export function ExplorationMap({ onSelectLandmark }: Props) {
         .setLngLat([landmark.longitude, landmark.latitude])
         .addTo(map)
     })
-  }, [displayedLandmarks, user])
+  }, [displayedLandmarks, selectedLandmarkId, user])
 
   return <div ref={containerRef} className="exploration-map" />
 }

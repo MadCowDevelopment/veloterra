@@ -136,6 +136,20 @@
   height: 54px;
 }
 
+.landmark-marker-anchor--selected {
+  z-index: 1;
+}
+
+.landmark-marker-anchor--selected:not(.landmark-marker-anchor--unrestored)::after {
+  position: absolute;
+  inset: 0;
+  border: 3px solid #22e3c4;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(34, 227, 196, 0.38);
+  content: '';
+  pointer-events: none;
+}
+
 .landmark-marker {
   position: absolute;
   top: 8px;
@@ -185,6 +199,16 @@
 
 .landmark-marker--restored::before {
   background: #ffd257;
+}
+
+.landmark-marker--selected {
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.65);
+}
+
+.landmark-marker-anchor--unrestored .landmark-marker--selected {
+  box-shadow:
+    0 0 0 3px #22e3c4,
+    0 5px 16px rgba(0, 0, 0, 0.65);
 }
 
 .landmark-marker .landmark-marker__construction {
