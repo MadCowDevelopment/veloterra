@@ -1,0 +1,152 @@
+import { useEffect, useRef, useState } from 'react'
+import { CoinAmount } from './CoinAmount'
+import { MIN_LANDMARK_CONTRIBUTION_COPPER } from '../domain/economy'
+import { LANDMARK_CATEGORY_LABELS, landmarkProgress, landmarkState, type Landmark } from '../domain/landmarks'
+import { useAuth } from '../state/auth'
+import { useLandmarks, type LandmarkContributor } from '../state/landmarks'
+import { useWallet } from '../state/wallet'
+import { loadWikimediaImage, type WikimediaImage } from '../lib/wikimedia'
+import './LandmarkPanel.css'
+
+interface Props {
+  landmark: Landmark
+  onClose: () => void
+}
+
+export function LandmarkPanel({ landmark, onClose }: Props) {
+  const user = useAuth((state) => state.user)
+  const balance = useWallet((state) => state.balance)
+  const contribute = useLandmarks((state) => state.contribute)
+  const loadContributors = useLandmarks((state) => state.loadContributors)
+  const [amount, setAmount] = useState('')
+  const [contributors, setContributors] = useState<LandmarkContributor[]>([])
+  const [image, setImage] = useState<WikimediaImage | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const idempotencyKeyRef = useRef<string | null>(null)
+  const state = landmarkState(landmark)
+  const remaining = landmark.costCopper - landmark.totalContributed
+  const progress = landmarkProgress(landmark)
+  const canContribute = balance >= Math.min(MIN_LANDMARK_CONTRIBUTION_COPPER, remaining)
+  const maximumGold = balance >= remaining
+    ? Math.ceil(remaining / MIN_LANDMARK_CONTRIBUTION_COPPER)
+    : Math.floor(balance / MIN_LANDMARK_CONTRIBUTION_COPPER)
+  const requestedGold = Number(amount)
+  const validAmount = Number.isSafeInteger(requestedGold)
+    && requestedGold >= 1
+    && requestedGold <= maximumGold
+
+  useEffect(() => {
+    setAmount(canContribute ? String(maximumGold) : '')
+    idempotencyKeyRef.current = null
+    setError(null)
+  }, [canContribute, landmark.id, maximumGold])
+
+  useEffect(() => {
+    if (!user) return
+    loadContributors(landmark.id).then(setContributors).catch(() => setContributors([]))
+  }, [landmark.id, landmark.totalContributed, loadContributors, user])
+
+  useEffect(() => {
+    setImage(null)
+    if (state !== 'restored') return
+    let cancelled = false
+    loadWikimediaImage({
+      wikimediaCommons: landmark.wikimediaCommons,
+      wikidata: landmark.wikidata,
+      wikipedia: landmark.wikipedia,
+    }).then((result) => {
+      if (!cancelled) setImage(result)
+    })
+    return () => { cancelled = true }
+  }, [landmark.id, landmark.wikidata, landmark.wikimediaCommons, landmark.wikipedia, state])
+
+  const submit = async () => {
+    setSubmitting(true)
+    setError(null)
+    try {
+      idempotencyKeyRef.current ??= crypto.randomUUID()
+      await contribute(
+        landmark.id,
+        requestedGold * MIN_LANDMARK_CONTRIBUTION_COPPER,
+        idempotencyKeyRef.current,
+      )
+      idempotencyKeyRef.current = null
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Contribution failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <aside className="landmark-panel" aria-label={`${landmark.name} restoration`}>
+      <button className="landmark-panel__close" type="button" onClick={onClose} aria-label="Close">×</button>
+      <span className={`landmark-panel__state landmark-panel__state--${state}`}>
+        {state === 'restored' ? 'Restored' : state === 'constructing' ? 'Under construction' : 'Ruins'}
+      </span>
+      <h2>{landmark.name}</h2>
+      <p>{LANDMARK_CATEGORY_LABELS[landmark.category]} · Tier {landmark.tier}</p>
+
+      {image && (
+        <figure className="landmark-panel__image">
+          <a href={image.pageUrl} target="_blank" rel="noreferrer">
+            <img src={image.src} alt={landmark.name} />
+          </a>
+          <figcaption>
+            {[image.artist && `Photo: ${image.artist}`, image.license, 'Wikimedia Commons'].filter(Boolean).join(' · ')}
+          </figcaption>
+        </figure>
+      )}
+
+      <div className="landmark-panel__progress" aria-label={`${Math.round(progress * 100)}% restored`}>
+        <span style={{ width: `${progress * 100}%` }} />
+      </div>
+      <div className="landmark-panel__totals">
+        <CoinAmount copper={landmark.totalContributed} size="sm" goldOnly />
+        <span>of</span>
+        <CoinAmount copper={landmark.costCopper} size="sm" goldOnly />
+      </div>
+
+      {state !== 'restored' && user && (
+        <div className="landmark-panel__contribute">
+          <label htmlFor="landmark-contribution">Gold to contribute</label>
+          <div>
+            <input
+              id="landmark-contribution"
+              type="number"
+              min="1"
+              max={maximumGold}
+              step="1"
+              value={amount}
+              onChange={(event) => {
+                idempotencyKeyRef.current = null
+                setAmount(event.target.value)
+              }}
+            />
+            <button
+              type="button"
+              disabled={submitting || !canContribute || !validAmount}
+              onClick={submit}
+            >
+              {submitting ? 'Contributing…' : 'Contribute'}
+            </button>
+          </div>
+          <small>Available: <CoinAmount copper={balance} size="sm" goldOnly /></small>
+        </div>
+      )}
+      {error && <p className="landmark-panel__error" role="alert">{error}</p>}
+      {contributors.length > 0 && (
+        <div className="landmark-panel__contributors">
+          <h3>Top contributors</h3>
+          {contributors.map((contributor) => (
+            <div key={contributor.userId}>
+              <span>{contributor.displayName}</span>
+              <CoinAmount copper={contributor.amount} size="sm" goldOnly />
+            </div>
+          ))}
+        </div>
+      )}
+    </aside>
+  )
+}

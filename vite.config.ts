@@ -16,6 +16,10 @@ export default defineConfig(({ command }) => {
 
   return {
     base,
+    define: {
+      __BUILD_REVISION__: JSON.stringify(process.env.GITHUB_SHA?.slice(0, 7) ?? 'local'),
+      __BUILD_TIMESTAMP__: JSON.stringify(new Date().toISOString()),
+    },
     plugins: [
     react(),
     VitePWA({

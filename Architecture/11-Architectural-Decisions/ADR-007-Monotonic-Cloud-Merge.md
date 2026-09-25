@@ -2,7 +2,7 @@
 
 <details><summary>Documentation Hints</summary>Record context, decision, alternatives, and consequences.</details>
 
-**Status:** Accepted  
+**Status:** Partially superseded by [ADR-011](ADR-011-Global-Landmark-Restoration.md)
 **Date:** 2026-09-18
 
 ## Context

@@ -63,6 +63,41 @@
   line-height: 1.6;
 }
 
+.settings-map-detail {
+  margin-top: 20px;
+}
+
+.settings-map-detail__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-map-detail__heading .muted {
+  margin: 0;
+}
+
+.settings-map-detail output {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.settings-map-detail input[type='range'] {
+  width: 100%;
+  margin: 18px 0 6px;
+  accent-color: var(--accent);
+}
+
+.settings-map-detail__range {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
 .soon {
   display: inline-block;
   margin-top: 4px;

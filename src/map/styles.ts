@@ -4,6 +4,8 @@ export interface MapStyleDef {
   url: string
 }
 
+export const DEFAULT_MAP_STYLE = 'liberty'
+
 // All OpenFreeMap styles share the same vector tiles — switching is free offline.
 export const MAP_STYLES: MapStyleDef[] = [
   { id: 'dark', name: 'Dark', url: 'https://tiles.openfreemap.org/styles/dark' },
@@ -13,5 +15,9 @@ export const MAP_STYLES: MapStyleDef[] = [
 ]
 
 export function styleUrl(id: string): string {
-  return (MAP_STYLES.find((s) => s.id === id) ?? MAP_STYLES[0]).url
+  return (
+    MAP_STYLES.find((style) => style.id === id)
+    ?? MAP_STYLES.find((style) => style.id === DEFAULT_MAP_STYLE)
+    ?? MAP_STYLES[0]
+  ).url
 }

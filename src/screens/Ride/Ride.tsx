@@ -6,11 +6,13 @@ import { useWakeLock } from '../../hooks/useWakeLock'
 import { haversine, formatDistance, formatDuration, type LngLat } from '../../lib/geo'
 import { useWallet } from '../../state/wallet'
 import { useExplored } from '../../state/explored'
+import { useLandmarks } from '../../state/landmarks'
 import { MAX_ACCURACY_M } from '../../domain/economy'
 import { CoinAmount } from '../../components/CoinAmount'
 import { MapStylePicker } from '../../components/MapStylePicker'
 import { addRide } from '../../lib/rides'
 import { syncNow } from '../../lib/sync'
+import { usePrefs } from '../../state/prefs'
 import './Ride.css'
 
 type Phase = 'idle' | 'tracking' | 'paused'
@@ -34,7 +36,8 @@ export function Ride() {
   const [elapsedMs, setElapsedMs] = useState(0)
   const [now, setNow] = useState(Date.now())
   const [hudVisible, setHudVisible] = useState(true)
-  const [headingUp, setHeadingUp] = useState(false)
+  const headingUp = usePrefs((state) => state.headingUp)
+  const setHeadingUp = usePrefs((state) => state.setHeadingUp)
 
   const runningSince = useRef<number | null>(null)
   const startedAt = useRef<number>(0)
@@ -50,6 +53,8 @@ export function Ride() {
   const finishRideStat = useWallet((s) => s.finishRide)
   const loadExplored = useExplored((s) => s.load)
   const reveal = useExplored((s) => s.reveal)
+  const discoverLandmarks = useLandmarks((s) => s.discoverAround)
+  const landmarks = useLandmarks((s) => s.landmarks)
 
   // Load previously explored cells so the fog reflects past rides.
   useEffect(() => {
@@ -84,7 +89,10 @@ export function Ride() {
     lastPoint.current = point
 
     const { coins, newCells } = reveal(fix)
-    if (newCells > 0) setNewCellsThisRide((n) => n + newCells)
+    if (newCells > 0) {
+      setNewCellsThisRide((n) => n + newCells)
+      if (!simulated) void discoverLandmarks(fix.lat, fix.lng)
+    }
     if (coins > 0) {
       addCoins(coins)
       setCoinsThisRide((c) => c + coins)
@@ -92,7 +100,7 @@ export function Ride() {
       setPops((p) => [...p, { id, amount: coins }])
       setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 1100)
     }
-  }, [fix, phase, reveal, addCoins, addDistance])
+  }, [fix, phase, reveal, addCoins, addDistance, discoverLandmarks, simulated])
 
   const elapsed =
     elapsedMs +
@@ -181,6 +189,7 @@ export function Ride() {
         follow={phase === 'tracking'}
         headingUp={headingUp}
         path={[...path.current]}
+        landmarks={landmarks}
         onPositionPick={simulated ? setSimulatedPosition : undefined}
       />
 
@@ -192,7 +201,7 @@ export function Ride() {
           <StatusBadge status={status} accuracy={fix?.accuracy} simulated={simulated} />
           <button
             className={`pill-btn heading-btn${headingUp ? ' is-active' : ''}`}
-            onClick={() => setHeadingUp((active) => !active)}
+            onClick={() => setHeadingUp(!headingUp)}
             aria-label="Keep direction of travel up"
             aria-pressed={headingUp}
           >

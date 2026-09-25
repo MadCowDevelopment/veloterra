@@ -105,6 +105,69 @@
   }
 }
 
+.ride-landmark-anchor {
+  width: 50px;
+  height: 50px;
+}
+
+.ride-landmark-marker {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 2px solid #090d13;
+  border-radius: 50% 50% 50% 8px;
+  transform: rotate(-45deg);
+  color: #090d13;
+  background: #77808b;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.65);
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.ride-landmark-marker--mystery {
+  background: #ffd257;
+  animation: ride-landmark-arrival 0.75s ease-in-out 5;
+}
+
+.ride-landmark-marker--mystery > span {
+  transform: rotate(45deg);
+}
+
+.ride-landmark-marker--constructing { background: #c4932f; }
+.ride-landmark-marker--restored { background: #22e3c4; }
+
+.ride-landmark-marker > img {
+  width: 19px;
+  height: 19px;
+  transform: rotate(45deg);
+  filter: brightness(0) saturate(100%);
+}
+
+.ride-landmark-marker .ride-landmark-marker__construction {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  width: 16px;
+  height: 16px;
+  padding: 3px;
+  border: 1px solid #090d13;
+  border-radius: 50%;
+  background: #ffd257;
+}
+
+@keyframes ride-landmark-arrival {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ride-landmark-marker--mystery { animation: none; }
+}
+
 /* HUD */
 .ride__hud {
   position: absolute;

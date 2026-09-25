@@ -12,6 +12,9 @@ export const NEW_CELL_COINS = 10
 /** Coins for re-entering a known cell after the cooldown. */
 export const REVISIT_COINS = 1
 
+/** Smallest requested landmark contribution (one gold). */
+export const MIN_LANDMARK_CONTRIBUTION_COPPER = 10_000
+
 /** No revisit reward until a cell has been left alone this long (anti-farming). */
 export const REVISIT_COOLDOWN_MS = 6 * 60 * 60 * 1000
 

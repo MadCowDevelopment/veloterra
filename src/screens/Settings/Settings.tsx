@@ -6,6 +6,11 @@ import { db } from '../../data/db'
 import { clearRides } from '../../lib/rides'
 import { useWallet } from '../../state/wallet'
 import { useExplored } from '../../state/explored'
+import {
+  EXPLORE_HEX_ZOOM_MAX,
+  EXPLORE_HEX_ZOOM_MIN,
+  usePrefs,
+} from '../../state/prefs'
 
 export function Settings() {
   const [count, setCount] = useState(0)
@@ -15,6 +20,8 @@ export function Settings() {
 
   const resetExplored = useExplored((s) => s.reset)
   const resetWallet = useWallet((s) => s.reset)
+  const exploreHexZoom = usePrefs((s) => s.exploreHexZoom)
+  const setExploreHexZoom = usePrefs((s) => s.setExploreHexZoom)
 
   useEffect(() => {
     db.cells.count().then(setCount)
@@ -37,6 +44,29 @@ export function Settings() {
   return (
     <SubPage title="Settings">
       <AccountCard />
+
+      <div className="card settings-map-detail">
+        <div className="settings-map-detail__heading">
+          <div>
+            <div className="card__title">Explored map detail</div>
+            <p className="muted">Switch from the overview heatmap to the detailed fog view.</p>
+          </div>
+          <output htmlFor="explore-hex-zoom">Zoom {exploreHexZoom}</output>
+        </div>
+        <input
+          id="explore-hex-zoom"
+          type="range"
+          min={EXPLORE_HEX_ZOOM_MIN}
+          max={EXPLORE_HEX_ZOOM_MAX}
+          step="1"
+          value={exploreHexZoom}
+          onChange={(event) => setExploreHexZoom(Number(event.target.value))}
+        />
+        <div className="settings-map-detail__range" aria-hidden="true">
+          <span>Farther out</span>
+          <span>Closer in</span>
+        </div>
+      </div>
 
       <div className="card">
         <div className="card__title">Offline maps</div>
