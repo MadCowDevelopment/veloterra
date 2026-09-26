@@ -37,6 +37,7 @@ export interface TeamOutboxRow {
   userId: string
   h3: string
   queuedAt: number
+  syncedAt?: number
 }
 
 class VeloDB extends Dexie {

@@ -102,7 +102,6 @@ function outboxId(teamId: string, userId: string, h3: string): string {
 
 async function queueTeamCells(teamId: string, userId: string): Promise<number> {
   const cells = await db.cells.toArray()
-  if (!cells.length) return db.teamOutbox.where('teamId').equals(teamId).and((row) => row.userId === userId).count()
   const existing = await db.teamOutbox
     .where('teamId')
     .equals(teamId)
@@ -119,7 +118,7 @@ async function queueTeamCells(teamId: string, userId: string): Promise<number> {
       queuedAt: Date.now(),
     }))
   if (rows.length) await db.teamOutbox.bulkPut(rows)
-  return existing.length + rows.length
+  return existing.filter((row) => !row.syncedAt).length + rows.length
 }
 
 async function clearTeamOutbox(teamId: string, userId: string): Promise<void> {
@@ -128,7 +127,7 @@ async function clearTeamOutbox(teamId: string, userId: string): Promise<void> {
 
 async function pendingCount(userId: string | null): Promise<number> {
   if (!userId) return 0
-  return db.teamOutbox.where('userId').equals(userId).count()
+  return db.teamOutbox.where('userId').equals(userId).and((row) => !row.syncedAt).count()
 }
 
 const refreshingTeamIds = new Map<string, Promise<void>>()
@@ -197,25 +196,58 @@ export const useTeams = create<TeamsState>()(
           try {
             const currentTeam = get().teams.find((team) => team.id === teamId)
             const canReadAudit = currentTeam?.role === 'captain' || currentTeam?.role === 'officer'
-            const [members, recommendations, outgoing, cells, presence, auditPage] = await Promise.all([
-              getTeamMembers(teamId),
+            const memberPromise = getTeamMembers(teamId).then((members) => {
+              set((state) => ({
+                membersByTeam: { ...state.membersByTeam, [teamId]: members },
+              }))
+              return members
+            })
+            const detailPromise = Promise.allSettled([
               getTeamRecommendations(teamId),
               getTeamInvitations(teamId),
               getTeamCells(teamId),
               getTeamPresence(teamId),
               canReadAudit ? getTeamAuditEvents(teamId) : Promise.resolve({ events: [], hasMore: false }),
             ])
+            const [membersResult, detailResults] = await Promise.allSettled([memberPromise, detailPromise])
+            const detailError = detailResults.status === 'fulfilled'
+              ? detailResults.value.find((result) => result.status === 'rejected')?.reason
+              : detailResults.reason
+            const rejectedResults = [membersResult, ...(detailResults.status === 'fulfilled' ? detailResults.value : [])]
+              .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+            const membershipError = rejectedResults.find((result) => isMembershipRevoked(result.reason))?.reason
+            const firstError = membershipError ?? (membersResult.status === 'rejected' ? membersResult.reason : detailError)
+            if (membershipError) throw membershipError
+
+            const [recommendationsResult, outgoingResult, cellsResult, presenceResult, auditResult] = detailResults.status === 'fulfilled'
+              ? detailResults.value
+              : []
             set((state) => ({
-              membersByTeam: { ...state.membersByTeam, [teamId]: members },
-              recommendationsByTeam: { ...state.recommendationsByTeam, [teamId]: recommendations },
-              outgoingInvitationsByTeam: { ...state.outgoingInvitationsByTeam, [teamId]: outgoing },
-              cellsByTeam: { ...state.cellsByTeam, [teamId]: cells },
-              presenceByTeam: { ...state.presenceByTeam, [teamId]: presence },
-              auditByTeam: { ...state.auditByTeam, [teamId]: auditPage.events },
-              auditHasMoreByTeam: { ...state.auditHasMoreByTeam, [teamId]: auditPage.hasMore },
+              membersByTeam: membersResult.status === 'fulfilled'
+                ? { ...state.membersByTeam, [teamId]: membersResult.value }
+                : state.membersByTeam,
+              recommendationsByTeam: recommendationsResult?.status === 'fulfilled'
+                ? { ...state.recommendationsByTeam, [teamId]: recommendationsResult.value }
+                : state.recommendationsByTeam,
+              outgoingInvitationsByTeam: outgoingResult?.status === 'fulfilled'
+                ? { ...state.outgoingInvitationsByTeam, [teamId]: outgoingResult.value }
+                : state.outgoingInvitationsByTeam,
+              cellsByTeam: cellsResult?.status === 'fulfilled'
+                ? { ...state.cellsByTeam, [teamId]: cellsResult.value }
+                : state.cellsByTeam,
+              presenceByTeam: presenceResult?.status === 'fulfilled'
+                ? { ...state.presenceByTeam, [teamId]: presenceResult.value }
+                : state.presenceByTeam,
+              auditByTeam: auditResult?.status === 'fulfilled'
+                ? { ...state.auditByTeam, [teamId]: auditResult.value.events }
+                : state.auditByTeam,
+              auditHasMoreByTeam: auditResult?.status === 'fulfilled'
+                ? { ...state.auditHasMoreByTeam, [teamId]: auditResult.value.hasMore }
+                : state.auditHasMoreByTeam,
               auditLoadingByTeam: { ...state.auditLoadingByTeam, [teamId]: false },
-              error: null,
+              error: firstError ? errorText(firstError) : null,
             }))
+            if (firstError) throw firstError
           } catch (error) {
             if (isMembershipRevoked(error)) {
               set((state) => ({
@@ -450,10 +482,12 @@ export const useTeams = create<TeamsState>()(
             const queued = await db.teamOutbox
               .where('teamId')
               .equals(team.id)
-              .and((row) => row.userId === user.id)
+              .and((row) => row.userId === user.id && !row.syncedAt)
               .toArray()
-            await addTeamCells(team.id, user.id, queued.map((row) => row.h3))
-            if (queued.length) await db.teamOutbox.bulkDelete(queued.map((row) => row.id))
+            if (queued.length) {
+              await addTeamCells(team.id, user.id, queued.map((row) => row.h3))
+              await db.teamOutbox.bulkPut(queued.map((row) => ({ ...row, syncedAt: Date.now() })))
+            }
             const cells = await getTeamCells(team.id)
             set((state) => ({ cellsByTeam: { ...state.cellsByTeam, [team.id]: cells } }))
           } catch (error) {
