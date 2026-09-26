@@ -1,4 +1,4 @@
-.google-btn {
+.oauth-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -16,16 +16,22 @@
   transition: transform 0.12s ease, background 0.2s ease;
 }
 
-.google-btn:active {
+.oauth-btn:active {
   transform: scale(0.98);
 }
 
-.google-btn:hover {
+.oauth-btn:hover {
   background: #f7f8f8;
 }
 
-.google-btn svg {
+.oauth-btn svg {
   flex: none;
+}
+
+.account-oauth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .sync-line {

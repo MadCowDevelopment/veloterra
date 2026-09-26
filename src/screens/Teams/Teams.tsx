@@ -79,7 +79,7 @@ export function Teams() {
         <div className="team-empty team-empty--account">
           <div className="team-empty__mark">@</div>
           <h2>Choose your team handle first</h2>
-          <p>Members see your display name and <strong>@username</strong>. Your Google email never becomes a team identifier.</p>
+          <p>Members see your display name and <strong>@username</strong>. Your login email never becomes a team identifier.</p>
           <Link to="/settings" className="btn btn--primary">Set up Profile</Link>
         </div>
       </SubPage>

@@ -26,6 +26,7 @@ const buildLabel = `${__BUILD_REVISION__} · ${buildTime.toLocaleString(undefine
 
 export function App() {
   const user = useAuth((s) => s.user)
+  const authError = useAuth((s) => s.authError)
 
   useEffect(() => {
     useAuth.getState().init()
@@ -54,6 +55,7 @@ export function App() {
 
   return (
     <>
+      {authError && <div className="auth-error-banner" role="alert">{authError}</div>}
       <Routes>
         <Route path="/" element={<Menu />} />
         <Route path="/ride" element={<Ride />} />

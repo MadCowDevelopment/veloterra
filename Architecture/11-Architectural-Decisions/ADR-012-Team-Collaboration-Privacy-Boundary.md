@@ -15,7 +15,7 @@ require an authenticated, server-authorized boundary.
 
 - Store teams, memberships, invitations, recommendations, shared H3 contributions,
   live presence, and team audit events in separate Supabase relations.
-- Use Google-authenticated Supabase user IDs for ownership and authorization. Use a
+- Use authenticated Supabase user IDs for ownership and authorization. Use a
   permanent, case-insensitive username only for exact discovery and invitations.
 - Enforce team access and Captain/Officer/Member permissions in PostgreSQL RPCs and
   RLS. The browser never receives a privileged credential.

@@ -19,10 +19,22 @@ function GoogleLogo() {
   )
 }
 
+function MicrosoftLogo() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path fill="#f25022" d="M0 0h8.5v8.5H0z" />
+      <path fill="#7fba00" d="M9.5 0H18v8.5H9.5z" />
+      <path fill="#00a4ef" d="M0 9.5h8.5V18H0z" />
+      <path fill="#ffb900" d="M9.5 9.5H18V18H9.5z" />
+    </svg>
+  )
+}
+
 export function AccountCard() {
   const user = useAuth((s) => s.user)
   const ready = useAuth((s) => s.ready)
   const signInGoogle = useAuth((s) => s.signInGoogle)
+  const signInMicrosoft = useAuth((s) => s.signInMicrosoft)
   const signOut = useAuth((s) => s.signOut)
   const profile = useProfile((s) => s.profile)
   const profileLoading = useProfile((s) => s.loading)
@@ -48,13 +60,19 @@ export function AccountCard() {
       ) : !user ? (
         <>
           <p className="muted" style={{ marginTop: 0 }}>
-            You’re playing locally on this device. Sign in with Google to back up your
+            You’re playing locally on this device. Sign in with Google or Microsoft to back up your
             progress and sync it across devices.
           </p>
-          <button className="google-btn" onClick={signInGoogle}>
-            <GoogleLogo />
-            Sign in with Google
-          </button>
+          <div className="account-oauth-actions">
+            <button className="oauth-btn oauth-btn--google" onClick={signInGoogle}>
+              <GoogleLogo />
+              Sign in with Google
+            </button>
+            <button className="oauth-btn oauth-btn--microsoft" onClick={signInMicrosoft}>
+              <MicrosoftLogo />
+              Sign in with Microsoft
+            </button>
+          </div>
         </>
       ) : (
         <>
@@ -187,7 +205,7 @@ function ProfileEditor({
 
       <div className="account-profile__identity">
         <span className="account-profile__label">Email</span>
-        <strong>{email ?? 'Google account'}</strong>
+        <strong>{email ?? 'Signed-in account'}</strong>
       </div>
 
       {profile?.username ? (
