@@ -10,6 +10,7 @@ import type {
 } from '../domain/teams'
 
 const TEAM_AUDIT_PAGE_SIZE = 50
+const TEAM_CELL_PAGE_SIZE = 1000
 
 function teamRole(value: unknown): TeamRole {
   return value === 'captain' || value === 'officer' ? value : 'member'
@@ -115,9 +116,17 @@ export async function getTeamRecommendations(teamId: string): Promise<TeamRecomm
 }
 
 export async function getTeamCells(teamId: string): Promise<string[]> {
-  const { data, error } = await supabase.rpc('get_team_cells', { p_team_id: teamId })
-  if (error) throw error
-  return ((data ?? []) as Array<{ h3: string }>).map((row) => row.h3)
+  const cells: string[] = []
+  for (let offset = 0; ; offset += TEAM_CELL_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .rpc('get_team_cells', { p_team_id: teamId })
+      .range(offset, offset + TEAM_CELL_PAGE_SIZE - 1)
+    if (error) throw error
+
+    const page = ((data ?? []) as Array<{ h3: string }>).map((row) => row.h3)
+    cells.push(...page)
+    if (page.length < TEAM_CELL_PAGE_SIZE) return cells
+  }
 }
 
 export async function getTeamPresence(teamId: string): Promise<TeamPresence[]> {
