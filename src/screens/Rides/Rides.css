@@ -24,8 +24,8 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 100px;
-  padding: 16px;
+  min-height: 72px;
+  padding: 6px 8px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--surface);
