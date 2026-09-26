@@ -29,9 +29,6 @@ export function Explore() {
   const teamCells = useTeams((state) => selectedTeamId ? state.cellsByTeam[selectedTeamId] ?? [] : [])
   const teamPresence = useTeams((state) => selectedTeamId ? state.presenceByTeam[selectedTeamId] ?? [] : [])
   const teamMembers = useTeams((state) => selectedTeamId ? state.membersByTeam[selectedTeamId] ?? [] : [])
-  const teamSyncStatus = useTeams((state) => state.syncStatus)
-  const pendingCellCount = useTeams((state) => state.pendingCellCount)
-  const teamLastSyncedAt = useTeams((state) => state.lastSyncedAt)
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTeamId = searchParams.get('team')
   const [viewMode, setViewMode] = useState<'personal' | 'team'>(requestedTeamId ? 'team' : 'personal')
@@ -127,60 +124,63 @@ export function Explore() {
       <div className="explore__controls">
         <MapStylePicker />
       </div>
-      <div className="explore__mode" role="group" aria-label="Map view">
-        <button className={viewMode === 'personal' ? 'is-active' : ''} onClick={() => { setTeamMenuOpen(false); setViewMode('personal'); setSearchParams({}) }}>Personal</button>
-        <button className={viewMode === 'team' ? 'is-active' : ''} onClick={() => { if (selectedTeam) { setViewMode('team'); setSearchParams({ team: selectedTeam.id }) } }} disabled={!selectedTeam}>Team</button>
-      </div>
-      {viewMode === 'team' && teams.length > 0 && (
-        <div
-          ref={teamSelectRef}
-          className="explore__team-select"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') setTeamMenuOpen(false)
-          }}
+      <div
+        ref={teamSelectRef}
+        className="explore__source-select"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') setTeamMenuOpen(false)
+        }}
+      >
+        <label htmlFor="explore-source">Map source</label>
+        <button
+          id="explore-source"
+          type="button"
+          className="explore__source-select-trigger"
+          aria-haspopup="listbox"
+          aria-expanded={teamMenuOpen}
+          aria-controls="explore-source-options"
+          onClick={() => setTeamMenuOpen((open) => !open)}
         >
-          <label htmlFor="explore-team">Team map</label>
-          <button
-            id="explore-team"
-            type="button"
-            className="explore__team-select-trigger"
-            aria-haspopup="listbox"
-            aria-expanded={teamMenuOpen}
-            aria-controls="explore-team-options"
-            onClick={() => setTeamMenuOpen((open) => !open)}
-          >
-            <span>{selectedTeam?.name ?? 'Choose a team'}</span>
-            <span className="explore__team-select-chevron" aria-hidden="true" />
-          </button>
-          {teamMenuOpen && (
-            <div id="explore-team-options" className="explore__team-select-menu" role="listbox" aria-label="Team map">
-              {teams.map((team) => (
-                <button
-                  key={team.id}
-                  type="button"
-                  className={`explore__team-select-option${team.id === selectedTeam?.id ? ' is-selected' : ''}`}
-                  role="option"
-                  aria-selected={team.id === selectedTeam?.id}
-                  onClick={() => {
-                    selectTeam(team.id)
-                    setSearchParams({ team: team.id })
-                    setViewMode('team')
-                    setTeamMenuOpen(false)
-                  }}
-                >
-                  <span>{team.name}</span>
-                  {team.id === selectedTeam?.id && <span aria-hidden="true">✓</span>}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      {viewMode === 'team' && (
-        <div className="explore__sync-note">
-          <strong>Shared tiles only.</strong> Rides, routes, timestamps, rewards, and wallet stay private. {pendingCellCount > 0 ? `${pendingCellCount.toLocaleString()} tile${pendingCellCount === 1 ? '' : 's'} pending sync.` : teamSyncStatus === 'error' ? 'Team map sync failed; showing last synchronized state.' : teamLastSyncedAt ? `Synced ${new Date(teamLastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.` : 'Team map may be stale while offline.'}
-        </div>
-      )}
+          <span>{viewMode === 'team' ? selectedTeam?.name ?? 'Choose a team' : 'Personal'}</span>
+          <span className="explore__source-select-chevron" aria-hidden="true" />
+        </button>
+        {teamMenuOpen && (
+          <div id="explore-source-options" className="explore__source-select-menu" role="listbox" aria-label="Map source">
+            <button
+              type="button"
+              className={`explore__source-select-option${viewMode === 'personal' ? ' is-selected' : ''}`}
+              role="option"
+              aria-selected={viewMode === 'personal'}
+              onClick={() => {
+                setSearchParams({})
+                setViewMode('personal')
+                setTeamMenuOpen(false)
+              }}
+            >
+              <span>Personal</span>
+              {viewMode === 'personal' && <span aria-hidden="true">✓</span>}
+            </button>
+            {teams.map((team) => (
+              <button
+                key={team.id}
+                type="button"
+                className={`explore__source-select-option${viewMode === 'team' && team.id === selectedTeam?.id ? ' is-selected' : ''}`}
+                role="option"
+                aria-selected={viewMode === 'team' && team.id === selectedTeam?.id}
+                onClick={() => {
+                  selectTeam(team.id)
+                  setSearchParams({ team: team.id })
+                  setViewMode('team')
+                  setTeamMenuOpen(false)
+                }}
+              >
+                <span>{team.name}</span>
+                {viewMode === 'team' && team.id === selectedTeam?.id && <span aria-hidden="true">✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       {user && landmarkError && (
         <div className="explore__landmark-status explore__landmark-status--error">{landmarkError}</div>
       )}
