@@ -27,6 +27,7 @@ interface AuthState {
 }
 
 let initialized = false
+let initialSessionResolved = false
 
 // Anonymous sessions are treated as "not signed in" — signed-out = device-local.
 const realUser = (u: User | null | undefined) => (u && !u.is_anonymous ? u : null)
@@ -42,15 +43,18 @@ export const useAuth = create<AuthState>((set) => ({
     const callbackError = readOAuthError()
     supabase.auth
       .getSession()
-      .then(({ data, error }) => set({
-        user: realUser(data.session?.user),
-        ready: true,
-        authError: callbackError ?? error?.message ?? null,
-      }))
+      .then(({ data, error }) => {
+        initialSessionResolved = true
+        set({
+          user: realUser(data.session?.user),
+          ready: true,
+          authError: callbackError ?? error?.message ?? null,
+        })
+      })
     supabase.auth.onAuthStateChange((_event, session) =>
       set({
         user: realUser(session?.user),
-        ready: true,
+        ...(initialSessionResolved ? { ready: true } : {}),
         ...(session ? { authError: null } : {}),
       }),
     )

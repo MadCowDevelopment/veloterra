@@ -347,6 +347,7 @@ function InvitationList({ invitations }: { invitations: ReturnType<typeof useTea
 function TeamDetail({ team }: { team: Team }) {
   const navigate = useNavigate()
   const members = useTeams((state) => state.membersByTeam[team.id] ?? [])
+  const membersLoading = useTeams((state) => state.memberLoadingByTeam[team.id] ?? false)
   const recommendations = useTeams((state) => state.recommendationsByTeam[team.id] ?? [])
   const outgoing = useTeams((state) => state.outgoingInvitationsByTeam[team.id] ?? [])
   const presence = useTeams((state) => state.presenceByTeam[team.id] ?? [])
@@ -441,6 +442,7 @@ function TeamDetail({ team }: { team: Team }) {
       <section className="team-section">
         <div className="team-section__heading"><div><p className="eyebrow">The crew</p><h2>Members</h2></div><span className="team-section__count">{members.length}</span></div>
         <div className="member-list">
+          {membersLoading && <div className="member-loading" role="status" aria-live="polite"><span className="member-loading__spinner" aria-hidden="true" />{members.length ? 'Refreshing members...' : 'Loading members...'}</div>}
           {members.map((member) => (
             <MemberRow
               key={member.userId}
@@ -450,6 +452,7 @@ function TeamDetail({ team }: { team: Team }) {
               onRemove={() => run(() => removeMember(team.id, member.userId), `${member.displayName} was removed.`)}
             />
           ))}
+          {!membersLoading && !members.length && <p className="team-section__intro">No members found.</p>}
         </div>
       </section>
 

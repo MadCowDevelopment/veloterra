@@ -245,7 +245,7 @@ export function Ride() {
         path: path.current,
         maxSpeedKmh: Math.round(maxSpeed.current * 10) / 10,
       }, rideScope.current ?? localScope)
-      if (!simulated) syncNow() // simulated progress must stay local
+      if (!simulated) await syncNow() // simulated progress must stay local
       navigate(`/rides/${id}`)
       return
     }

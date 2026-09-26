@@ -81,6 +81,7 @@ let syncedProfileUserId: string | null = null
 const discoveredRideAreas = new Map<string, Set<string>>()
 const discoveringRideAreas = new Map<string, Set<string>>()
 const discoveryBlockedUntil = new Map<string, number>()
+let latestBoundsRequestId = 0
 const DISCOVERY_AREA_STEP = 0.02
 
 function nextUtcDay(): number {
@@ -120,11 +121,14 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
   clearError: () => set({ error: null }),
 
   loadBounds: async (bounds) => {
-    if (!useAuth.getState().user) {
+    const requestId = ++latestBoundsRequestId
+    const requestUser = useAuth.getState().user
+    if (!requestUser) {
       set({ landmarks: [], loading: false, error: null })
       return false
     }
 
+    const requestUserId = requestUser.id
     set({ loading: true, error: null })
     try {
       const { data, error } = await supabase
@@ -137,13 +141,15 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
         .order('tier', { ascending: false })
         .limit(500)
       if (error) throw error
+      if (requestId !== latestBoundsRequestId || useAuth.getState().user?.id !== requestUserId) return false
       set({ landmarks: (data as LandmarkRow[]).map(fromRow) })
       return true
     } catch (error) {
+      if (requestId !== latestBoundsRequestId || useAuth.getState().user?.id !== requestUserId) return false
       set({ error: await errorMessage(error) })
       return false
     } finally {
-      set({ loading: false })
+      if (requestId === latestBoundsRequestId) set({ loading: false })
     }
   },
 

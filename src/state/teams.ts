@@ -54,6 +54,7 @@ interface TeamsState {
   auditByTeam: Record<string, TeamAuditEvent[]>
   auditHasMoreByTeam: Record<string, boolean>
   auditLoadingByTeam: Record<string, boolean>
+  memberLoadingByTeam: Record<string, boolean>
   loading: boolean
   error: string | null
   syncStatus: TeamSyncStatus
@@ -156,6 +157,7 @@ export const useTeams = create<TeamsState>()(
       auditByTeam: {},
       auditHasMoreByTeam: {},
       auditLoadingByTeam: {},
+      memberLoadingByTeam: {},
       loading: false,
       error: null,
       syncStatus: 'idle',
@@ -190,6 +192,7 @@ export const useTeams = create<TeamsState>()(
             auditByTeam: Object.fromEntries(Object.entries(state.auditByTeam).filter(([id]) => activeTeamIds.has(id))),
             auditHasMoreByTeam: Object.fromEntries(Object.entries(state.auditHasMoreByTeam).filter(([id]) => activeTeamIds.has(id))),
             auditLoadingByTeam: Object.fromEntries(Object.entries(state.auditLoadingByTeam).filter(([id]) => activeTeamIds.has(id))),
+            memberLoadingByTeam: Object.fromEntries(Object.entries(state.memberLoadingByTeam).filter(([id]) => activeTeamIds.has(id))),
           }))
           if (selectedTeamId) await get().refreshTeam(selectedTeamId)
           set({ pendingCellCount: await pendingCount(user.id) })
@@ -203,6 +206,7 @@ export const useTeams = create<TeamsState>()(
         if (existingRefresh) return existingRefresh
 
         const refreshPromise = (async () => {
+          set((state) => ({ memberLoadingByTeam: { ...state.memberLoadingByTeam, [teamId]: true } }))
           try {
             const currentTeam = get().teams.find((team) => team.id === teamId)
             const canReadAudit = currentTeam?.role === 'captain' || currentTeam?.role === 'officer'
@@ -211,6 +215,8 @@ export const useTeams = create<TeamsState>()(
                 membersByTeam: { ...state.membersByTeam, [teamId]: members },
               }))
               return members
+            }).finally(() => {
+              set((state) => ({ memberLoadingByTeam: { ...state.memberLoadingByTeam, [teamId]: false } }))
             })
             const detailPromise = Promise.allSettled([
               getTeamRecommendations(teamId),
@@ -273,6 +279,7 @@ export const useTeams = create<TeamsState>()(
                 auditByTeam: Object.fromEntries(Object.entries(state.auditByTeam).filter(([id]) => id !== teamId)),
                 auditHasMoreByTeam: Object.fromEntries(Object.entries(state.auditHasMoreByTeam).filter(([id]) => id !== teamId)),
                 auditLoadingByTeam: Object.fromEntries(Object.entries(state.auditLoadingByTeam).filter(([id]) => id !== teamId)),
+                memberLoadingByTeam: Object.fromEntries(Object.entries(state.memberLoadingByTeam).filter(([id]) => id !== teamId)),
                 error: 'Your access to this team has ended.',
               }))
               return
@@ -522,6 +529,7 @@ export const useTeams = create<TeamsState>()(
                 auditByTeam: Object.fromEntries(Object.entries(state.auditByTeam).filter(([id]) => id !== team.id)),
                 auditHasMoreByTeam: Object.fromEntries(Object.entries(state.auditHasMoreByTeam).filter(([id]) => id !== team.id)),
                 auditLoadingByTeam: Object.fromEntries(Object.entries(state.auditLoadingByTeam).filter(([id]) => id !== team.id)),
+                memberLoadingByTeam: Object.fromEntries(Object.entries(state.memberLoadingByTeam).filter(([id]) => id !== team.id)),
                 error: 'Your access to this team has ended.',
               }))
               continue
@@ -567,6 +575,7 @@ export const useTeams = create<TeamsState>()(
         auditByTeam: {},
         auditHasMoreByTeam: {},
         auditLoadingByTeam: {},
+        memberLoadingByTeam: {},
         loading: false,
         error: null,
         syncStatus: 'idle',
