@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { cellToLatLng } from 'h3-js'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LandmarkPanel } from '../../components/LandmarkPanel'
 import { MapStylePicker } from '../../components/MapStylePicker'
 import { ExplorationMap } from '../../map/ExplorationMap'
@@ -12,6 +12,7 @@ import { useTeams } from '../../state/teams'
 import './Explore.css'
 
 export function Explore() {
+  const navigate = useNavigate()
   const load = useExplored((state) => state.load)
   const exploredLoaded = useExplored((state) => state.loaded)
   const exploredCells = useExplored((state) => state.cells)
@@ -50,6 +51,14 @@ export function Explore() {
     }),
     [memberNames, teamPresence],
   )
+  const handleBack = () => {
+    const historyIndex = window.history.state?.idx
+    if (typeof historyIndex === 'number' && historyIndex > 0) {
+      navigate(-1)
+      return
+    }
+    navigate('/')
+  }
 
   useEffect(() => {
     load()
@@ -115,7 +124,7 @@ export function Explore() {
         presence={viewMode === 'team' ? presenceMarkers : undefined}
       />
       <header className="explore__header">
-        <Link to="/" className="explore__back" aria-label="Back to menu">‹</Link>
+        <button type="button" className="explore__back" onClick={handleBack} aria-label="Back">‹</button>
         <div className="explore__title">
           <strong>{viewMode === 'team' ? selectedTeam?.name ?? 'Team map' : 'Explored world'}</strong>
           <span>{(viewMode === 'team' ? teamCells.length : revision >= 0 ? cellCount : 0).toLocaleString()} {viewMode === 'team' ? 'shared tiles' : 'hexes'}</span>

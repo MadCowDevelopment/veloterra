@@ -8,7 +8,7 @@ import { Offline } from '../screens/Offline/Offline'
 import { RidesHistory } from '../screens/Rides/RidesHistory'
 import { RideSummary } from '../screens/Rides/RideSummary'
 import { Explore } from '../screens/Explore/Explore'
-import { Teams } from '../screens/Teams/Teams'
+import { TeamHistory, Teams } from '../screens/Teams/Teams'
 import { useAuth } from '../state/auth'
 import { syncNow } from '../lib/sync'
 import { useProfile } from '../state/profile'
@@ -59,6 +59,7 @@ export function App() {
         <Route path="/ride" element={<Ride />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/teams" element={<Teams />} />
+        <Route path="/teams/:teamId/history" element={<TeamHistory />} />
         <Route path="/teams/:teamId" element={<Teams />} />
         <Route path="/wallet" element={<Wallet />} />
         <Route path="/settings" element={<Settings />} />

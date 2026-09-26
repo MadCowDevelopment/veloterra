@@ -405,11 +405,10 @@
 }
 
 .live-share {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   gap: 10px;
   align-items: center;
-  padding: 11px 13px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: rgba(7, 10, 17, 0.72);
@@ -421,28 +420,9 @@
   background: rgba(10, 47, 45, 0.82);
 }
 
-.live-share__copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.live-share__copy strong {
-  overflow: hidden;
-  color: var(--text);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.live-share__copy small {
-  color: var(--text-dim);
-  font-size: 10px;
-}
-
 .live-share select {
   max-width: 110px;
+  flex: 0 1 auto;
   border: 0;
   outline: 0;
   background: transparent;
@@ -453,13 +433,21 @@
 
 .live-share__toggle {
   display: flex;
-  grid-column: 1 / -1;
+  min-width: 0;
+  flex: 1;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   color: var(--text-dim);
   font-size: 11px;
   line-height: 1.35;
+}
+
+.live-share__toggle span {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .live-share__toggle input {
@@ -494,6 +482,46 @@
 
 .live-share__toggle input:checked + i { background: var(--accent); }
 .live-share__toggle input:checked + i::after { transform: translateX(17px); background: #04140f; }
+
+.team-presence-marker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: min(180px, calc(100vw - 32px));
+  transform: translateY(-4px);
+  padding: 4px 7px 4px 4px;
+  border: 1px solid rgba(34, 227, 196, 0.5);
+  border-radius: 999px;
+  background: rgba(7, 10, 17, 0.88);
+  color: var(--text);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.team-presence-marker__dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 9px var(--accent);
+}
+
+.team-presence-marker__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-presence-marker::after {
+  position: absolute;
+  bottom: -7px;
+  left: 12px;
+  border: 4px solid transparent;
+  border-top-color: rgba(34, 227, 196, 0.5);
+  content: '';
+}
 
 .start-btn:active,
 .pause-btn:active,

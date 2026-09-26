@@ -11,6 +11,7 @@ import type {
 
 const TEAM_CELL_PAGE_SIZE = 1000
 const TEAM_CELL_WRITE_BATCH_SIZE = 500
+const TEAM_AUDIT_PAGE_SIZE = 50
 
 function teamRole(value: unknown): TeamRole {
   return value === 'captain' || value === 'officer' ? value : 'member'
@@ -154,15 +155,21 @@ export async function getTeamPresence(teamId: string): Promise<TeamPresence[]> {
   }))
 }
 
-export async function getTeamAuditEvents(teamId: string): Promise<TeamAuditEvent[]> {
+export interface TeamAuditPage {
+  events: TeamAuditEvent[]
+  hasMore: boolean
+}
+
+export async function getTeamAuditEvents(teamId: string, offset = 0): Promise<TeamAuditPage> {
   const { data, error } = await supabase
     .from('team_audit_events')
     .select('id,team_id,actor_user_id,event_type,affected_user_id,metadata,created_at')
     .eq('team_id', teamId)
     .order('created_at', { ascending: false })
-    .limit(100)
+    .order('id', { ascending: false })
+    .range(offset, offset + TEAM_AUDIT_PAGE_SIZE)
   if (error) throw error
-  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+  const rows = ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
     id: String(row.id),
     teamId: String(row.team_id),
     actorUserId: row.actor_user_id ? String(row.actor_user_id) : null,
@@ -171,6 +178,10 @@ export async function getTeamAuditEvents(teamId: string): Promise<TeamAuditEvent
     metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata as Record<string, unknown> : {},
     createdAt: String(row.created_at),
   }))
+  return {
+    events: rows.slice(0, TEAM_AUDIT_PAGE_SIZE),
+    hasMore: rows.length > TEAM_AUDIT_PAGE_SIZE,
+  }
 }
 
 export async function createTeam(name: string, description: string, logoUrl: string): Promise<Team> {

@@ -57,9 +57,26 @@ export function Ride() {
   const user = useAuth((state) => state.user)
   const teams = useTeams((state) => state.teams)
   const selectedTeamId = useTeams((state) => state.selectedTeamId)
+  const refreshTeam = useTeams((state) => state.refreshTeam)
   const sendPresence = useTeams((state) => state.sendPresence)
   const stopPresence = useTeams((state) => state.stopPresence)
   const liveTeam = teams.find((team) => team.id === liveTeamId) ?? null
+  const liveTeamPresence = useTeams((state) => liveTeamId ? state.presenceByTeam[liveTeamId] ?? [] : [])
+  const liveTeamMembers = useTeams((state) => liveTeamId ? state.membersByTeam[liveTeamId] ?? [] : [])
+  const livePresence = useMemo(() => {
+    const members = new Map(liveTeamMembers.map((member) => [member.userId, member]))
+    return liveTeamPresence
+      .filter((presence) => presence.userId !== user?.id)
+      .map((presence) => {
+        const member = members.get(presence.userId)
+        return {
+          id: presence.userId,
+          latitude: presence.latitude,
+          longitude: presence.longitude,
+          label: member?.username ? `@${member.username}` : 'Team member',
+        }
+      })
+  }, [liveTeamMembers, liveTeamPresence, user?.id])
   const addCoins = useWallet((s) => s.add)
   const addDistance = useWallet((s) => s.addDistance)
   const finishRideStat = useWallet((s) => s.finishRide)
@@ -77,6 +94,13 @@ export function Ride() {
     if (liveTeamId && teams.some((team) => team.id === liveTeamId)) return
     setLiveTeamId(selectedTeamId && teams.some((team) => team.id === selectedTeamId) ? selectedTeamId : teams[0]?.id ?? '')
   }, [liveTeamId, selectedTeamId, teams])
+
+  useEffect(() => {
+    if (!user || !liveTeamId) return
+    void refreshTeam(liveTeamId)
+    const timer = window.setInterval(() => void refreshTeam(liveTeamId), 15_000)
+    return () => window.clearInterval(timer)
+  }, [liveTeamId, refreshTeam, user])
 
   // Tick the clock.
   useEffect(() => {
@@ -254,6 +278,7 @@ export function Ride() {
         headingUp={headingUp}
         path={[...path.current]}
         landmarks={landmarks}
+        presence={livePresence}
         onPositionPick={simulated ? setSimulatedPosition : undefined}
       />
 
@@ -393,17 +418,13 @@ function LiveShareControl({
 }) {
   return (
     <div className={`live-share${enabled ? ' live-share--active' : ''}`}>
-      <div className="live-share__copy">
-        <strong>{enabled ? 'Live position is shared' : 'Live position is off'}</strong>
-        <small>{enabled ? `Visible to ${team.name} · expires automatically` : 'Fresh opt-in required for every ride'}</small>
-      </div>
       {teams.length > 1 && (
         <select value={team.id} onChange={(event) => onTeamChange(event.target.value)} aria-label="Team that can see the live position">
           {teams.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
         </select>
       )}
       <label className="live-share__toggle">
-        <span>Share my live position with {team.name}</span>
+        <span>Share live position with {team.name}</span>
         <input type="checkbox" checked={enabled} onChange={onToggle} />
         <i aria-hidden="true" />
       </label>

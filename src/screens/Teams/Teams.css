@@ -219,7 +219,10 @@
 .team-detail__hero-copy { flex: 1; min-width: 0; }
 .team-detail__hero-copy h2 { overflow-wrap: anywhere; }
 .team-detail__actions { flex-wrap: wrap; gap: 9px; }
-.team-detail__actions .btn { flex: 1; min-width: 130px; height: 46px; padding: 0 12px; font-size: 13px; }
+.team-detail__actions .btn,
+.team-section > .btn,
+.team-danger > .btn { height: 44px; }
+.team-detail__actions .btn { flex: 1; min-width: 130px; padding: 0 12px; font-size: 13px; }
 
 .inline-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
 .inline-form .team-field { margin-top: 10px; }
@@ -227,6 +230,7 @@
 .inline-form__input > span { color: var(--accent); font-weight: 800; }
 .inline-form__input input { flex: 1; }
 .inline-form__input .btn { flex: 0 0 auto; height: 44px; padding: 0 10px; font-size: 12px; }
+.inline-form > .btn { align-self: flex-start; height: 46px; margin: 14px 0; padding: 0 14px; font-size: 13px; }
 
 .member-row { flex-wrap: wrap; gap: 10px; padding: 12px; }
 .member-row__identity { flex: 1; min-width: 180px; gap: 10px; }
@@ -237,7 +241,16 @@
 .role-pill--captain { color: var(--coin); background: rgba(255, 210, 87, 0.12); }
 .role-pill--officer { color: var(--accent); background: rgba(34, 227, 196, 0.1); }
 .member-row__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; margin-left: 44px; }
-.member-row__actions select { height: 32px; padding: 0 7px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-solid); color: var(--text); font: inherit; font-size: 12px; }
+.member-role-control { display: inline-flex; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 9px; background: rgba(8, 13, 28, 0.45); }
+.member-role-control__option { min-height: 32px; padding: 0 10px; border: 0; border-right: 1px solid var(--border); background: transparent; color: var(--text-faint); font: inherit; font-size: 12px; font-weight: 700; }
+.member-role-control__option:last-child { border-right: 0; }
+.member-role-control__option--selected { background: rgba(34, 227, 196, 0.13); color: var(--accent); }
+.member-role-control__option:disabled { cursor: default; opacity: 0.58; }
+.member-row__confirm { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; width: 100%; margin-left: 44px; padding: 10px 11px; border: 1px solid rgba(255, 107, 107, 0.3); border-radius: 10px; background: rgba(255, 45, 85, 0.06); }
+.member-row__confirm-copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.member-row__confirm-copy strong { color: #ffd1cb; font-size: 12px; }
+.member-row__confirm-copy span { color: var(--text-dim); font-size: 11px; line-height: 1.4; }
+.member-row__confirm-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; }
 
 .recommendation-item,
 .outgoing-item { justify-content: space-between; align-items: flex-start; gap: 10px; padding: 12px; }
@@ -270,9 +283,24 @@
 
 .team-danger { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; border-color: rgba(255, 107, 107, 0.35); background: rgba(255, 45, 85, 0.05); }
 .team-danger h2 { color: #ffb4a9; }
-.team-danger .danger__btn { align-self: flex-start; }
+.team-danger .danger__btn { align-self: flex-start; height: 44px; padding: 0 18px; }
 .team-danger__confirm { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 107, 107, 0.2); }
 .team-danger__confirm p { margin: 0; }
+.team-danger__confirm-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.team-danger__confirm-actions .btn,
+.team-danger__confirm-actions .danger__btn { min-height: 40px; }
+.team-danger__transfer-toggle { align-self: flex-start; }
+.team-danger__transfer { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 107, 107, 0.2); }
+.team-danger__transfer > p { margin: 0; }
+.transfer-member-list { display: flex; flex-direction: column; gap: 6px; }
+.transfer-member { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: rgba(8, 13, 28, 0.3); cursor: pointer; }
+.transfer-member:hover,
+.transfer-member--selected { border-color: rgba(34, 227, 196, 0.5); background: rgba(34, 227, 196, 0.08); }
+.transfer-member input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.transfer-member__copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.transfer-member__copy small { color: var(--text-faint); font-size: 11px; }
+
+.team-history__load-more { width: 100%; margin-top: 14px; }
 
 @media (max-width: 440px) {
   .team-page-heading { align-items: flex-start; flex-direction: column; }
@@ -280,5 +308,7 @@
   .member-row__identity { min-width: 0; }
   .role-pill { margin-left: 44px; }
   .member-row__actions { margin-left: 0; }
+  .member-row__confirm { margin-left: 0; flex-direction: column; }
+  .member-row__confirm-actions { align-self: flex-end; }
   .invitation-item__actions .btn { min-width: 0; padding: 0 8px; font-size: 12px; }
 }

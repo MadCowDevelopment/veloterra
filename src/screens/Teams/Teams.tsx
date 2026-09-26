@@ -136,6 +136,87 @@ export function Teams() {
   )
 }
 
+export function TeamHistory() {
+  const { teamId } = useParams()
+  const team = useTeams((state) => state.teams.find((candidate) => candidate.id === teamId)) ?? null
+  const loading = useTeams((state) => state.loading)
+
+  if (!team) {
+    return (
+      <SubPage title="Team history" back="/teams">
+        <div className="team-empty">
+          <h2>{loading ? 'Loading team history…' : 'Team not found'}</h2>
+          {!loading && <p>This team is no longer available to your account.</p>}
+        </div>
+      </SubPage>
+    )
+  }
+
+  return <TeamHistoryView team={team} />
+}
+
+function TeamHistoryView({ team }: { team: Team }) {
+  const members = useTeams((state) => state.membersByTeam[team.id] ?? [])
+  const audit = useTeams((state) => state.auditByTeam[team.id] ?? [])
+  const auditHasMore = useTeams((state) => state.auditHasMoreByTeam[team.id] ?? false)
+  const auditLoading = useTeams((state) => state.auditLoadingByTeam[team.id] ?? false)
+  const storeError = useTeams((state) => state.error)
+  const refreshTeam = useTeams((state) => state.refreshTeam)
+  const loadMoreAudit = useTeams((state) => state.loadMoreAudit)
+  const memberNames = useMemo(() => new Map(members.map((member) => [member.userId, member])), [members])
+  const canReadHistory = team.role === 'captain' || team.role === 'officer'
+
+  useEffect(() => {
+    void refreshTeam(team.id).catch(() => undefined)
+  }, [refreshTeam, team.id])
+
+  if (!canReadHistory) {
+    return (
+      <SubPage title="Team history" back={`/teams/${team.id}`}>
+        <div className="team-empty">
+          <h2>History is restricted</h2>
+          <p>Only Captains and Officers can view team changes.</p>
+        </div>
+      </SubPage>
+    )
+  }
+
+  return (
+    <SubPage title="Team history" back={`/teams/${team.id}`}>
+      {storeError && <div className="team-alert team-alert--error">{storeError}</div>}
+      <section className="team-section team-audit team-history">
+        <div className="team-section__heading">
+          <div>
+            <p className="eyebrow">{team.name}</p>
+            <h2>Membership and team changes</h2>
+          </div>
+          <span className="team-section__count">{auditHasMore ? `${audit.length}+` : audit.length}</span>
+        </div>
+        {audit.length ? (
+          <div className="team-audit__list">
+            {audit.map((event) => {
+              const actor = event.actorUserId ? memberNames.get(event.actorUserId) : null
+              const affected = event.affectedUserId ? memberNames.get(event.affectedUserId) : null
+              return (
+                <div key={event.id} className="team-audit__item">
+                  <div>
+                    <strong>{auditLabel(event.eventType)}</strong>
+                    <small>{actor ? `${actor.displayName}${actor.username ? ` · @${actor.username}` : ''}` : 'Former member'}{affected && affected.userId !== event.actorUserId ? ` · ${affected.displayName}` : ''}</small>
+                  </div>
+                  <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</time>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <p className="team-section__intro">Membership and team changes will appear here.</p>
+        )}
+        {auditHasMore && <button className="btn btn--ghost team-history__load-more" onClick={() => void loadMoreAudit(team.id)} disabled={auditLoading}>{auditLoading ? 'Loading older entries…' : 'Load older entries'}</button>}
+      </section>
+    </SubPage>
+  )
+}
+
 function CreateTeam({ onCancel, onCreated }: { onCancel: () => void; onCreated: (id: string) => void }) {
   const createTeam = useTeams((state) => state.createTeam)
   const [name, setName] = useState('')
@@ -269,7 +350,6 @@ function TeamDetail({ team }: { team: Team }) {
   const recommendations = useTeams((state) => state.recommendationsByTeam[team.id] ?? [])
   const outgoing = useTeams((state) => state.outgoingInvitationsByTeam[team.id] ?? [])
   const presence = useTeams((state) => state.presenceByTeam[team.id] ?? [])
-  const audit = useTeams((state) => state.auditByTeam[team.id] ?? [])
   const pendingCells = useTeams((state) => state.pendingCellCount)
   const refreshTeam = useTeams((state) => state.refreshTeam)
   const invite = useTeams((state) => state.invite)
@@ -286,6 +366,9 @@ function TeamDetail({ team }: { team: Team }) {
   const [showInvite, setShowInvite] = useState(false)
   const [showRecommend, setShowRecommend] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+  const [showTransfer, setShowTransfer] = useState(false)
+  const [transferTargetId, setTransferTargetId] = useState<string | null>(null)
+  const [showLeave, setShowLeave] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
   const [message, setMessage] = useState<string | null>(null)
@@ -309,19 +392,30 @@ function TeamDetail({ team }: { team: Team }) {
   }
 
   const handleLeave = async () => {
-    if (!window.confirm('Leave this team? Your personal rides, wallet, and personal explored cells stay on your account. Your contributed tiles will no longer appear for the team unless another member explored them too.')) return
+    setShowLeave(false)
     await run(() => leave(team.id), 'You left the team.')
     if (!useTeams.getState().teams.some((candidate) => candidate.id === team.id)) navigate('/teams')
   }
 
   const handleDelete = async () => {
     if (deleteConfirmation !== 'DELETE') return
-    if (!window.confirm(`Delete ${team.name}? This permanently removes membership, invitations, recommendations, shared exploration contributions, live positions, and audit history for everyone. Personal rides, wallet, rewards, and personal cells are not deleted.`)) return
     await run(() => deleteTeam(team.id), 'Team deleted.')
     if (!useTeams.getState().teams.some((candidate) => candidate.id === team.id)) navigate('/teams')
   }
 
+  const transferTarget = members.find((member) => member.userId === transferTargetId && member.role === 'officer') ?? null
+  const handleTransfer = async () => {
+    if (!transferTarget) return
+    setShowTransfer(false)
+    setTransferTargetId(null)
+    await run(() => transferCaptain(team.id, transferTarget.userId), `Captain transferred to ${transferTarget.displayName}.`)
+  }
+
   const memberNames = useMemo(() => new Map(members.map((member) => [member.userId, member])), [members])
+  const pendingOutgoing = outgoing.filter((invitation) => invitation.status === 'pending' && new Date(invitation.expiresAt).getTime() > Date.now())
+  const pendingRecommendations = recommendations.filter((recommendation) => recommendation.status === 'pending'
+    && !memberNames.has(recommendation.prospectiveUserId)
+    && !pendingOutgoing.some((invitation) => invitation.inviteeUserId === recommendation.prospectiveUserId))
 
   return (
     <SubPage title={team.name}>
@@ -338,7 +432,6 @@ function TeamDetail({ team }: { team: Team }) {
       <div className="team-detail__actions">
         <Link to={`/explore?team=${team.id}`} className="btn btn--primary">Open team map</Link>
         {canInvite && <button className="btn btn--ghost" onClick={() => setShowInvite((current) => !current)}>Invite member</button>}
-        <Link to="/teams" className="btn btn--ghost">Switch team</Link>
       </div>
       {pendingCells > 0 && <div className="team-sync-note">{pendingCells.toLocaleString()} explored tile{pendingCells === 1 ? '' : 's'} waiting to sync. Your ride can continue offline.</div>}
 
@@ -354,11 +447,7 @@ function TeamDetail({ team }: { team: Team }) {
               member={member}
               canManage={isCaptain && member.role !== 'captain'}
               onChangeRole={(role) => run(() => changeRole(team.id, member.userId, role), `${member.displayName} is now an ${role === 'officer' ? 'Officer' : 'Member'}.`)}
-              onTransfer={() => run(() => transferCaptain(team.id, member.userId), `Captain transferred to ${member.displayName}.`)}
-              onRemove={() => {
-                if (window.confirm(`Remove ${member.displayName}? They lose team access and live-map visibility, but keep personal rides, wallet, rewards, and personal cells.`)) return run(() => removeMember(team.id, member.userId), `${member.displayName} was removed.`)
-                return Promise.resolve()
-              }}
+              onRemove={() => run(() => removeMember(team.id, member.userId), `${member.displayName} was removed.`)}
             />
           ))}
         </div>
@@ -369,7 +458,7 @@ function TeamDetail({ team }: { team: Team }) {
         <p className="team-section__intro">Recommendations are private to the recommender and members with invite permission. They are not invitations until a Captain or Officer sends one.</p>
         <button className="btn btn--ghost" onClick={() => setShowRecommend((current) => !current)}>{showRecommend ? 'Close recommendation' : 'Recommend a member'}</button>
         {showRecommend && <RecommendForm onSubmit={(username, note) => run(() => recommend(team.id, username, note), 'Recommendation submitted.')} />}
-        {!!recommendations.length && <div className="recommendation-list">{recommendations.map((recommendation) => (
+        {!!pendingRecommendations.length && <div className="recommendation-list">{pendingRecommendations.map((recommendation) => (
           <article key={recommendation.id} className="recommendation-item">
             <div><strong>@{recommendation.prospectiveUsername}</strong><small>{recommendation.status} · {new Date(recommendation.createdAt).toLocaleDateString()}</small></div>
             {recommendation.note && <p>{recommendation.note}</p>}
@@ -378,16 +467,39 @@ function TeamDetail({ team }: { team: Team }) {
         ))}</div>}
       </section>
 
-      {canInvite && !!outgoing.length && <section className="team-section"><div className="team-section__heading"><div><p className="eyebrow">Awaiting response</p><h2>Sent invitations</h2></div></div><div className="outgoing-list">{outgoing.map((invitation) => <div key={invitation.id} className="outgoing-item"><span>@{invitation.inviteeUsername}<small>{invitation.status} · expires {new Date(invitation.expiresAt).toLocaleDateString()}</small></span>{invitation.status === 'pending' && <button className="text-btn text-btn--muted" onClick={() => void run(() => revokeInvitation(invitation.id), 'Invitation revoked.')}>Revoke</button>}</div>)}</div></section>}
+      {canInvite && !!pendingOutgoing.length && <section className="team-section"><div className="team-section__heading"><div><p className="eyebrow">Awaiting response</p><h2>Sent invitations</h2></div></div><div className="outgoing-list">{pendingOutgoing.map((invitation) => <div key={invitation.id} className="outgoing-item"><span>@{invitation.inviteeUsername}<small>{invitation.status} · expires {new Date(invitation.expiresAt).toLocaleDateString()}</small></span><button className="text-btn text-btn--muted" onClick={() => void run(() => revokeInvitation(invitation.id), 'Invitation revoked.')}>Revoke</button></div>)}</div></section>}
 
-      {canInvite && <section className="team-section team-audit"><div className="team-section__heading"><div><p className="eyebrow">Accountability</p><h2>Team history</h2></div><span className="team-section__count">{audit.length}</span></div>{audit.length ? <div className="team-audit__list">{audit.map((event) => { const actor = event.actorUserId ? memberNames.get(event.actorUserId) : null; const affected = event.affectedUserId ? memberNames.get(event.affectedUserId) : null; return <div key={event.id} className="team-audit__item"><div><strong>{auditLabel(event.eventType)}</strong><small>{actor ? `${actor.displayName}${actor.username ? ` · @${actor.username}` : ''}` : 'Former member'}{affected && affected.userId !== event.actorUserId ? ` · ${affected.displayName}` : ''}</small></div><time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</time></div> })}</div> : <p className="team-section__intro">Membership and team changes will appear here.</p>}</section>}
+      {canInvite && <section className="team-section team-audit"><div className="team-section__heading"><div><p className="eyebrow">Accountability</p><h2>Team history</h2></div></div><Link to={`/teams/${team.id}/history`} className="btn btn--ghost">Open team history</Link></section>}
 
       {isCaptain && <section className="team-section"><div className="team-section__heading"><div><p className="eyebrow">Captain tools</p><h2>Team details</h2></div></div><button className="btn btn--ghost" onClick={() => setShowEdit((current) => !current)}>{showEdit ? 'Close editor' : 'Edit name, description, or logo'}</button>{showEdit && <EditTeamForm team={team} onSubmit={(name, description, logo) => run(() => updateDetails(team.id, name, description, logo), 'Team details updated.')} />}</section>}
 
       <section className="team-danger">
         <div><p className="eyebrow">Membership</p><h2>{isCaptain ? 'Transfer or delete' : 'Leave team'}</h2><p>{isCaptain ? 'The only Captain cannot leave. Transfer Captain first, or delete the team after reviewing the impact.' : 'Leaving removes your shared tile contributions from this team view unless another active member contributed the same tile. Personal data stays untouched.'}</p></div>
-        {!isCaptain && <button className="danger__btn" onClick={() => void handleLeave()}>Leave team</button>}
-        {isCaptain && <><button className="danger__btn" onClick={() => { setShowDelete((current) => !current); setDeleteConfirmation('') }}>{showDelete ? 'Cancel delete' : 'Delete team'}</button>{showDelete && <div className="team-danger__confirm"><p>This removes all team membership, invitations, recommendations, shared cells, live positions, and audit history. Type DELETE to continue.</p><input aria-label="Type DELETE to confirm team deletion" value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder="DELETE" autoComplete="off" /><button className="danger__btn" onClick={() => void handleDelete()} disabled={deleteConfirmation !== 'DELETE'}>Confirm deletion</button></div>}</>}
+        {!isCaptain && <>
+          <button className="danger__btn" onClick={() => setShowLeave((current) => !current)}>{showLeave ? 'Keep membership' : 'Leave team'}</button>
+          {showLeave && <div className="team-danger__confirm">
+            <p>Leave this team? Your personal rides, wallet, rewards, and explored cells stay on your account.</p>
+            <div className="team-danger__confirm-actions"><button className="btn btn--ghost" onClick={() => setShowLeave(false)}>Cancel</button><button className="danger__btn" onClick={() => void handleLeave()}>Leave team</button></div>
+          </div>}
+        </>}
+        {isCaptain && <>
+          <button className="btn btn--ghost team-danger__transfer-toggle" onClick={() => { setShowTransfer((current) => !current); setTransferTargetId(null) }}>{showTransfer ? 'Cancel transfer' : 'Transfer captain'}</button>
+          {showTransfer && <div className="team-danger__transfer">
+            <p>Choose an Officer to make Captain. You will become a Member.</p>
+            <div className="transfer-member-list">
+              {members.filter((member) => member.role === 'officer').map((member) => (
+                <label key={member.userId} className={`transfer-member ${transferTargetId === member.userId ? 'transfer-member--selected' : ''}`}>
+                  <input type="radio" name="transfer-captain" checked={transferTargetId === member.userId} onChange={() => setTransferTargetId(member.userId)} />
+                  <span className={`member-avatar member-avatar--${member.role}`}>{member.displayName.slice(0, 1).toUpperCase()}</span>
+                  <span className="transfer-member__copy"><strong>{member.displayName}</strong><small>{member.username ? `@${member.username}` : 'No username'} · {teamRoleLabel(member.role)}</small></span>
+                </label>
+              ))}
+            </div>
+            {transferTarget && <div className="team-danger__confirm"><p>Transfer Captain to <strong>{transferTarget.displayName}</strong>? You will become a Member.</p><div className="team-danger__confirm-actions"><button className="btn btn--ghost" onClick={() => setTransferTargetId(null)}>Cancel</button><button className="btn btn--primary" onClick={() => void handleTransfer()}>Confirm transfer</button></div></div>}
+          </div>}
+          <button className="danger__btn" onClick={() => { setShowDelete((current) => !current); setDeleteConfirmation('') }}>{showDelete ? 'Cancel delete' : 'Delete team'}</button>
+          {showDelete && <div className="team-danger__confirm"><p>This removes all team membership, invitations, recommendations, shared cells, live positions, and audit history. Type DELETE to continue.</p><input aria-label="Type DELETE to confirm team deletion" value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder="DELETE" autoComplete="off" /><button className="danger__btn" onClick={() => void handleDelete()} disabled={deleteConfirmation !== 'DELETE'}>Confirm deletion</button></div>}
+        </>}
       </section>
     </SubPage>
   )
@@ -417,10 +529,12 @@ function EditTeamForm({ team, onSubmit }: { team: Team; onSubmit: (name: string,
   return <div className="inline-form"><label className="team-field"><span>Team name</span><input value={name} onChange={(event) => setName(event.target.value)} maxLength={TEAM_NAME_LIMIT} /></label><label className="team-field"><span>Description</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={TEAM_DESCRIPTION_LIMIT} rows={3} /></label><label className="team-field"><span>Replace logo</span><input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) readImage(file, setLogoUrl, () => undefined) }} /></label><button className="btn btn--primary" onClick={() => void submit()} disabled={busy}>{busy ? 'Saving…' : 'Save details'}</button></div>
 }
 
-function MemberRow({ member, canManage, onChangeRole, onTransfer, onRemove }: { member: TeamMember; canManage: boolean; onChangeRole: (role: 'officer' | 'member') => Promise<void>; onTransfer: () => Promise<void>; onRemove: () => Promise<void> }) {
+function MemberRow({ member, canManage, onChangeRole, onRemove }: { member: TeamMember; canManage: boolean; onChangeRole: (role: 'officer' | 'member') => Promise<void>; onRemove: () => Promise<void> }) {
   const [busy, setBusy] = useState(false)
+  const [confirmingRemove, setConfirmingRemove] = useState(false)
   const run = async (action: () => Promise<void>) => { setBusy(true); try { await action() } finally { setBusy(false) } }
-  return <div className="member-row"><div className="member-row__identity"><div className={`member-avatar member-avatar--${member.role}`}>{member.displayName.slice(0, 1).toUpperCase()}</div><div><strong>{member.displayName}</strong><small>{member.username ? `@${member.username}` : 'No username'} · joined {new Date(member.joinedAt).toLocaleDateString()}</small></div></div><span className={`role-pill role-pill--${member.role}`}>{teamRoleLabel(member.role)}</span>{canManage && <div className="member-row__actions"><select value={member.role} onChange={(event) => void run(() => onChangeRole(event.target.value as 'officer' | 'member'))} disabled={busy} aria-label={`Role for ${member.displayName}`}><option value="member">Member</option><option value="officer">Officer</option></select><button className="text-btn" onClick={() => void run(onTransfer)} disabled={busy}>Make Captain</button><button className="text-btn text-btn--danger" onClick={() => void run(onRemove)} disabled={busy}>Remove</button></div>}</div>
+  const confirmRemove = async () => { await run(onRemove); setConfirmingRemove(false) }
+  return <div className="member-row"><div className="member-row__identity"><div className={`member-avatar member-avatar--${member.role}`}>{member.displayName.slice(0, 1).toUpperCase()}</div><div><strong>{member.displayName}</strong><small>{member.username ? `@${member.username}` : 'No username'} · joined {new Date(member.joinedAt).toLocaleDateString()}</small></div></div><span className={`role-pill role-pill--${member.role}`}>{teamRoleLabel(member.role)}</span>{canManage && <><div className="member-row__actions"><div className="member-role-control" role="group" aria-label={`Role for ${member.displayName}`}>{(['member', 'officer'] as const).map((role) => <button key={role} type="button" className={`member-role-control__option ${member.role === role ? 'member-role-control__option--selected' : ''}`} aria-pressed={member.role === role} onClick={() => { if (member.role !== role) void run(() => onChangeRole(role)) }} disabled={busy}>{teamRoleLabel(role)}</button>)}</div><button className="text-btn text-btn--danger" onClick={() => setConfirmingRemove(true)} disabled={busy}>Remove</button></div>{confirmingRemove && <div className="member-row__confirm"><div className="member-row__confirm-copy"><strong>Remove {member.displayName}?</strong><span>They lose team access and live-map visibility. Personal data stays private.</span></div><div className="member-row__confirm-actions"><button className="text-btn text-btn--muted" onClick={() => setConfirmingRemove(false)} disabled={busy}>Cancel</button><button className="text-btn text-btn--danger" onClick={() => void confirmRemove()} disabled={busy}>{busy ? 'Removing…' : 'Remove member'}</button></div></div>}</>}</div>
 }
 
 function LivePresence({ people }: { people: Array<{ teamId: string; userId: string; latitude: number; longitude: number; updatedAt: string; member?: TeamMember }> }) {
