@@ -69,6 +69,12 @@ function fromRow(row: LandmarkRow): Landmark {
   }
 }
 
+function mergeLandmarks(existing: Landmark[], incoming: Landmark[]): Landmark[] {
+  const byId = new Map(existing.map((landmark) => [landmark.id, landmark]))
+  for (const landmark of incoming) byId.set(landmark.id, landmark)
+  return [...byId.values()]
+}
+
 async function syncProfile(user: NonNullable<ReturnType<typeof useAuth.getState>['user']>) {
   if (syncedProfileUserId === user.id) return
   const displayName = user.user_metadata.full_name ?? user.user_metadata.name ?? user.email ?? 'VeloTerra rider'
@@ -141,11 +147,12 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
         .order('tier', { ascending: false })
         .limit(500)
       if (error) throw error
-      if (requestId !== latestBoundsRequestId || useAuth.getState().user?.id !== requestUserId) return false
-      set({ landmarks: (data as LandmarkRow[]).map(fromRow) })
+      if (useAuth.getState().user?.id !== requestUserId) return false
+      const loaded = (data as LandmarkRow[]).map(fromRow)
+      set((state) => ({ landmarks: mergeLandmarks(state.landmarks, loaded) }))
       return true
     } catch (error) {
-      if (requestId !== latestBoundsRequestId || useAuth.getState().user?.id !== requestUserId) return false
+      if (useAuth.getState().user?.id !== requestUserId) return false
       set({ error: await errorMessage(error) })
       return false
     } finally {
