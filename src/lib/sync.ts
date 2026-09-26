@@ -5,6 +5,7 @@ import { db, type RideRow } from '../data/db'
 import { useWallet } from '../state/wallet'
 import { useExplored } from '../state/explored'
 import { useAuth } from '../state/auth'
+import { useTeams } from '../state/teams'
 import { HEX_RES } from '../domain/economy'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error'
@@ -120,6 +121,8 @@ export async function syncNow(): Promise<void> {
     if (toPush.length) await supabase.from('rides').upsert(toPush)
     const toPull = cloudArr.filter((r) => !localIds.has(r.id)).map(rowToRide)
     if (toPull.length) await db.rides.bulkPut(toPull)
+
+    await useTeams.getState().sync()
 
     useSync.setState({ status: 'synced', lastSyncedAt: Date.now() })
   } catch {

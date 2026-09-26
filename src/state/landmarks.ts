@@ -4,6 +4,7 @@ import { useAuth } from './auth'
 import { MIN_LANDMARK_CONTRIBUTION_COPPER } from '../domain/economy'
 import { useWallet } from './wallet'
 import type { Landmark, LandmarkBounds, LandmarkCategory } from '../domain/landmarks'
+import { saveMyProfile, suggestedDisplayName } from '../lib/profile'
 
 interface LandmarkRow {
   id: string
@@ -74,13 +75,7 @@ async function syncProfile() {
   if (syncedProfileUserId === user.id) return
   const displayName = user.user_metadata.full_name ?? user.user_metadata.name ?? user.email ?? 'VeloTerra rider'
   const avatarUrl = user.user_metadata.avatar_url ?? user.user_metadata.picture ?? null
-  const { error } = await supabase.from('profiles').upsert({
-    user_id: user.id,
-    display_name: String(displayName).slice(0, 80),
-    avatar_url: avatarUrl,
-    updated_at: new Date().toISOString(),
-  })
-  if (error) throw error
+  await saveMyProfile(String(displayName || suggestedDisplayName(user)).slice(0, 80), avatarUrl)
   syncedProfileUserId = user.id
 }
 

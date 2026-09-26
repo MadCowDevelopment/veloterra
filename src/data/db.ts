@@ -31,10 +31,19 @@ export interface RideRow {
   maxSpeedKmh?: number
 }
 
+export interface TeamOutboxRow {
+  id: string
+  teamId: string
+  userId: string
+  h3: string
+  queuedAt: number
+}
+
 class VeloDB extends Dexie {
   cells!: Table<CellRow, string>
   regions!: Table<RegionRow, string>
   rides!: Table<RideRow, string>
+  teamOutbox!: Table<TeamOutboxRow, string>
 
   constructor() {
     super('veloterra')
@@ -44,6 +53,12 @@ class VeloDB extends Dexie {
       cells: '&h3, lastVisited',
       regions: '&id, createdAt',
       rides: '&id, startedAt',
+    })
+    this.version(4).stores({
+      cells: '&h3, lastVisited',
+      regions: '&id, createdAt',
+      rides: '&id, startedAt',
+      teamOutbox: '&id, teamId, userId, [teamId+userId], queuedAt',
     })
   }
 }

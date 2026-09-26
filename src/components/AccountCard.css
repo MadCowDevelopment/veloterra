@@ -58,3 +58,174 @@
   opacity: 0.5;
   pointer-events: none;
 }
+
+.account-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 18px 0 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.account-profile__heading,
+.account-profile__identity,
+.account-profile__input-row,
+.account-teams-link {
+  display: flex;
+  align-items: center;
+}
+
+.account-profile__heading {
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.account-profile__heading h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.account-profile__heading p,
+.account-profile__identity small,
+.account-profile__claim small {
+  margin: 3px 0 0;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.account-profile__avatar {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev);
+}
+
+.account-profile__avatar--empty {
+  background: linear-gradient(135deg, rgba(34, 227, 196, 0.3), rgba(255, 210, 87, 0.24));
+}
+
+.account-profile__identity {
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 14px;
+}
+
+.account-profile__label,
+.account-profile__field span,
+.account-profile__claim label,
+.account-profile__file span {
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.account-profile__identity small {
+  width: 100%;
+}
+
+.account-profile__claim,
+.account-profile__field,
+.account-profile__file {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.account-profile__input-row {
+  gap: 8px;
+}
+
+.account-profile__input-row > span {
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.account-profile input {
+  min-width: 0;
+  height: 42px;
+  padding: 0 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface-solid);
+  color: var(--text);
+  font: inherit;
+}
+
+.account-profile__input-row input {
+  flex: 1;
+}
+
+.account-profile input:focus {
+  outline: 2px solid rgba(34, 227, 196, 0.4);
+  outline-offset: 1px;
+}
+
+.btn--small {
+  height: 42px !important;
+  padding: 0 10px;
+  font-size: 12px !important;
+  white-space: nowrap;
+}
+
+.account-profile__file input {
+  height: auto;
+  padding: 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.account-profile__error,
+.account-profile__saved {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.account-profile__error { color: #ffb4a9; }
+.account-profile__saved { color: var(--accent); }
+
+.account-profile__save {
+  width: 100%;
+}
+
+.account-teams-link {
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 12px 13px;
+  border: 1px solid rgba(34, 227, 196, 0.2);
+  border-radius: 12px;
+  background: rgba(34, 227, 196, 0.06);
+  color: var(--text);
+}
+
+.account-teams-link span:first-child {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.account-teams-link small {
+  color: var(--text-dim);
+}
+
+.account-teams-link b {
+  display: grid;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--coin);
+  color: #231b04;
+  font-size: 11px;
+}

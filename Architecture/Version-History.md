@@ -2,6 +2,7 @@
 
 | Version | Date | Author | Change |
 |---|---|---|---|
+| 1.13 | 2026-09-25 | VeloTerra maintainers | Documented the first-release team collaboration boundary, RLS controls, offline contribution outbox, live presence expiry, and remaining hosted validation gates. |
 | 1.12 | 2026-09-25 | VeloTerra maintainers | Restricted database function execution to explicit Data API roles and removed unnecessary definer rights from contributor lookup. |
 | 1.11 | 2026-09-23 | VeloTerra maintainers | Added nearby hidden-landmark cues in the ride view and raised discovery capacity for rides up to approximately 100 km. |
 | 1.10 | 2026-09-23 | VeloTerra maintainers | Aligned the detailed exploration overview with the ride map's fog-of-war rendering while retaining the low-zoom heatmap. |

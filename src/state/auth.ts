@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { clearAllLivePresence } from '../lib/teams'
 
 // OAuth returns here (must be in Supabase Auth → Redirect allowlist).
 const redirectTo = window.location.origin + import.meta.env.BASE_URL
@@ -38,6 +39,7 @@ export const useAuth = create<AuthState>((set) => ({
   },
 
   signOut: async () => {
+    await clearAllLivePresence().catch(() => undefined)
     await supabase.auth.signOut()
   },
 }))

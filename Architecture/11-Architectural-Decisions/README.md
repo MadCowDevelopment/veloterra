@@ -19,3 +19,4 @@ Record significant, costly, risky, or difficult-to-reverse architecture decision
 | [ADR-009](ADR-009-Copper-Base-Currency.md) | Copper as the currency base unit | Accepted |
 | [ADR-010](ADR-010-Development-GPS-Simulation.md) | Automatic development GPS simulation | Accepted |
 | [ADR-011](ADR-011-Global-Landmark-Restoration.md) | Global landmark restoration and atomic spending | Accepted |
+| [ADR-012](ADR-012-Team-Collaboration-Privacy-Boundary.md) | Team collaboration as a separate privacy boundary | Accepted |

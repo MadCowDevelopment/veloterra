@@ -11,9 +11,10 @@ import './LandmarkPanel.css'
 interface Props {
   landmark: Landmark
   onClose: () => void
+  teamView?: boolean
 }
 
-export function LandmarkPanel({ landmark, onClose }: Props) {
+export function LandmarkPanel({ landmark, onClose, teamView = false }: Props) {
   const user = useAuth((state) => state.user)
   const balance = useWallet((state) => state.balance)
   const contribute = useLandmarks((state) => state.contribute)
@@ -43,9 +44,9 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
   }, [canContribute, landmark.id, maximumGold])
 
   useEffect(() => {
-    if (!user) return
+    if (!user || teamView) return
     loadContributors(landmark.id).then(setContributors).catch(() => setContributors([]))
-  }, [landmark.id, landmark.totalContributed, loadContributors, user])
+  }, [landmark.id, landmark.totalContributed, loadContributors, teamView, user])
 
   useEffect(() => {
     setImage(null)
@@ -102,13 +103,13 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
       <div className="landmark-panel__progress" aria-label={`${Math.round(progress * 100)}% restored`}>
         <span style={{ width: `${progress * 100}%` }} />
       </div>
-      <div className="landmark-panel__totals">
-        <CoinAmount copper={landmark.totalContributed} size="sm" goldOnly />
-        <span>of</span>
-        <CoinAmount copper={landmark.costCopper} size="sm" goldOnly />
-      </div>
+      {!teamView && <div className="landmark-panel__totals">
+          <CoinAmount copper={landmark.totalContributed} size="sm" goldOnly />
+          <span>of</span>
+          <CoinAmount copper={landmark.costCopper} size="sm" goldOnly />
+        </div>}
 
-      {state !== 'restored' && user && (
+      {!teamView && state !== 'restored' && user && (
         <div className="landmark-panel__contribute">
           <label htmlFor="landmark-contribution">Gold to contribute</label>
           <div>
@@ -136,7 +137,7 @@ export function LandmarkPanel({ landmark, onClose }: Props) {
         </div>
       )}
       {error && <p className="landmark-panel__error" role="alert">{error}</p>}
-      {contributors.length > 0 && (
+      {!teamView && contributors.length > 0 && (
         <div className="landmark-panel__contributors">
           <h3>Top contributors</h3>
           {contributors.map((contributor) => (

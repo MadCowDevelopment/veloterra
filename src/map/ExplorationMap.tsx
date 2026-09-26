@@ -7,6 +7,7 @@ import { useExplored } from '../state/explored'
 import { useAuth } from '../state/auth'
 import { useLandmarks } from '../state/landmarks'
 import { usePrefs } from '../state/prefs'
+import type { CellRow } from '../data/db'
 import { HEX_RES } from '../domain/economy'
 import { buildFog } from '../lib/fog'
 import { constructionLandmarkIcon, restoredLandmarkIcons, unrestoredLandmarkIcon } from './landmarkIcons'
@@ -15,6 +16,9 @@ import { styleUrl } from './styles'
 interface Props {
   selectedLandmarkId: string | null
   onSelectLandmark: (landmark: Landmark) => void
+  teamCells?: string[]
+  teamView?: boolean
+  presence?: Array<{ id: string; label: string; latitude: number; longitude: number }>
 }
 
 const LANDMARK_ZOOM = 12
@@ -28,12 +32,19 @@ function activeLandmarks(landmarks: Landmark[], exploredCells: Map<string, unkno
   return landmarks.filter((landmark) => exploredCells.has(latLngToCell(landmark.latitude, landmark.longitude, HEX_RES)))
 }
 
-export function ExplorationMap({ selectedLandmarkId, onSelectLandmark }: Props) {
+export function ExplorationMap({
+  selectedLandmarkId,
+  onSelectLandmark,
+  teamCells,
+  teamView = false,
+  presence = [],
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const landmarkMarkersRef = useRef<Marker[]>([])
+  const presenceMarkersRef = useRef<Marker[]>([])
   const revision = useExplored((state) => state.revision)
-  const cells = useExplored((state) => state.cells)
+  const personalCells = useExplored((state) => state.cells)
   const user = useAuth((state) => state.user)
   const landmarks = useLandmarks((state) => state.landmarks)
   const landmarkRevision = useLandmarks((state) => state.revision)
@@ -51,10 +62,25 @@ export function ExplorationMap({ selectedLandmarkId, onSelectLandmark }: Props) 
   const userRef = useRef(user)
   const loadLandmarksRef = useRef(loadLandmarks)
   const onSelectLandmarkRef = useRef(onSelectLandmark)
+  const teamViewRef = useRef(teamView)
+  const cellsRef = useRef<Map<string, CellRow>>(personalCells)
   userRef.current = user
   setExploreMapViewRef.current = setExploreMapView
   loadLandmarksRef.current = loadLandmarks
   onSelectLandmarkRef.current = onSelectLandmark
+  teamViewRef.current = teamView
+
+  const cells = useMemo(() => {
+    if (!teamView || teamCells == null) return personalCells
+    return new Map(teamCells.map((h3) => [h3, {
+      h3,
+      firstVisited: 0,
+      lastVisited: 0,
+      visits: 1,
+      coins: 0,
+    } satisfies CellRow]))
+  }, [personalCells, teamCells, teamView])
+  cellsRef.current = cells
 
   const updateFog = () => {
     const map = mapRef.current
@@ -63,7 +89,7 @@ export function ExplorationMap({ selectedLandmarkId, onSelectLandmark }: Props) 
     const padding = 0.02
     const visibleCells: string[] = []
 
-    for (const h3 of useExplored.getState().cells.keys()) {
+    for (const h3 of cellsRef.current.keys()) {
       if (getResolution(h3) !== HEX_RES) continue
       const [latitude, longitude] = cellToLatLng(h3)
       if (
@@ -83,9 +109,9 @@ export function ExplorationMap({ selectedLandmarkId, onSelectLandmark }: Props) 
     const rows = [...cells.values()].filter((row) => getResolution(row.h3) === HEX_RES)
     const properties = (row: (typeof rows)[number]) => ({
       h3: row.h3,
-      visits: row.visits,
-      firstVisited: row.firstVisited,
-      lastVisited: row.lastVisited,
+      visits: teamView ? undefined : row.visits,
+      firstVisited: teamView ? undefined : row.firstVisited,
+      lastVisited: teamView ? undefined : row.lastVisited,
     })
 
     const polygons: GeoJSON.FeatureCollection = {
@@ -113,7 +139,7 @@ export function ExplorationMap({ selectedLandmarkId, onSelectLandmark }: Props) 
       }),
     }
     return { polygons, points }
-  }, [cells, revision])
+  }, [cells, revision, teamView])
   const dataRef = useRef(data)
   dataRef.current = data
   const displayedLandmarks = useMemo(
@@ -208,6 +234,13 @@ export function ExplorationMap({ selectedLandmarkId, onSelectLandmark }: Props) 
     map.on('click', 'explored-hexes', (event) => {
       const properties = event.features?.[0]?.properties
       if (!properties) return
+      if (teamViewRef.current) {
+        new Popup({ closeButton: false, offset: 8 })
+          .setLngLat(event.lngLat)
+          .setHTML('<strong>Team explored tile</strong><br><span>Shared exploration only</span>')
+          .addTo(map)
+        return
+      }
       const visited = new Date(Number(properties.firstVisited)).toLocaleDateString()
       new Popup({ closeButton: false, offset: 8 })
         .setLngLat(event.lngLat)
@@ -235,6 +268,8 @@ export function ExplorationMap({ selectedLandmarkId, onSelectLandmark }: Props) 
     return () => {
       landmarkMarkersRef.current.forEach((marker) => marker.remove())
       landmarkMarkersRef.current = []
+      presenceMarkersRef.current.forEach((marker) => marker.remove())
+      presenceMarkersRef.current = []
       map.remove()
       mapRef.current = null
     }
@@ -311,6 +346,34 @@ export function ExplorationMap({ selectedLandmarkId, onSelectLandmark }: Props) 
         .addTo(map)
     })
   }, [displayedLandmarks, selectedLandmarkId, user])
+
+  useEffect(() => {
+    const map = mapRef.current
+    presenceMarkersRef.current.forEach((marker) => marker.remove())
+    presenceMarkersRef.current = []
+    if (!map || !teamView) return
+
+    presenceMarkersRef.current = presence.map((person) => {
+      const element = document.createElement('div')
+      element.className = 'team-presence-marker'
+      element.title = `${person.label} is sharing a live position`
+      element.setAttribute('aria-label', `${person.label} is sharing a live position`)
+      const dot = document.createElement('span')
+      dot.className = 'team-presence-marker__dot'
+      const label = document.createElement('span')
+      label.className = 'team-presence-marker__label'
+      label.textContent = person.label
+      element.append(dot, label)
+      return new Marker({ element, anchor: 'bottom' })
+        .setLngLat([person.longitude, person.latitude])
+        .addTo(map)
+    })
+
+    return () => {
+      presenceMarkersRef.current.forEach((marker) => marker.remove())
+      presenceMarkersRef.current = []
+    }
+  }, [presence, teamView])
 
   return <div ref={containerRef} className="exploration-map" />
 }

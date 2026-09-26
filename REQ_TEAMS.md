@@ -1,6 +1,12 @@
 # Team Collaboration Requirements
 
-**Status:** Candidate product requirements; not implemented
+**Status:** Implemented first-release baseline; hosted migrations and authorization smoke checks complete
+
+The implementation covers the first-release scope below. Migrations through
+`202609250007` are deployed to the linked Supabase project, and hosted RLS,
+anonymous-access, grant, trigger, and security-advisor checks pass. Authenticated
+username claiming now passes in a signed-in browser session. Invitation,
+role-management, and live-sharing browser flows still require acceptance coverage.
 
 This document defines optional team collaboration for VeloTerra. Teams let riders
 work toward shared exploration goals while keeping individual rides, routes, wallet
@@ -203,6 +209,8 @@ it and send an invitation, or decline it.
 - The Captain can kick a member with a confirmation step.
 - Kicking immediately revokes team access and pending team invitations, but does not
   delete personal data.
+- The removed member's contributed shared tiles follow TEAM-04: they leave the team view
+  unless another active member has contributed the same tile.
 - A removed member must not receive future team map updates or live positions.
 - Membership changes should be recorded in a minimal team audit history for the
   Captain and Officers.
@@ -213,8 +221,9 @@ it and send an invitation, or decline it.
 
 - Explored World provides a clear switch between **Personal** and **Team** views.
 - Personal view shows only the user's personal explored cells.
-- Team view shows the union of the selected team's shared cells, including retained
-  contributions from current and former members.
+- Team view shows the union of the selected team's shared cells contributed by active
+  members. A tile previously contributed by a member who leaves or is removed remains
+  visible only if another active member has contributed the same tile.
 - If a user belongs to multiple teams, the user chooses which team's view to open.
 - Team view must not expose ride paths, ride timestamps, wallet balances, or reward
   amounts.
@@ -239,8 +248,10 @@ it and send an invitation, or decline it.
   metadata needed to render the team map.
 - A ride can continue while offline. Personal exploration and ride recording remain
   available; team contributions wait in a local outbox and show a pending-sync state.
-- Synchronization is monotonic for explored tiles: merging contributions cannot remove
-  a tile from a team map.
+- Synchronization is monotonic for each active member contribution: merging contributions
+  cannot remove a tile contributed by an active member. A departure or removal may remove
+  that member's contribution from the team view under TEAM-04, but never removes personal
+  exploration data.
 - A team view shows the last synchronized state when offline and clearly indicates
   that it may be stale.
 - Team exploration records must be protected by team membership authorization and
@@ -335,8 +346,9 @@ wallet records. A likely first model contains:
 - **Invitation:** team, invitee, inviter, expiry, status, and timestamps.
 - **Recommendation:** team, recommender, prospective member, note, reviewer, status,
   and timestamps.
-- **Team explored cell:** team, cell identifier, first contribution time, and minimum
-  synchronization metadata. Do not store a ride path here.
+- **Team explored cell contribution:** team, cell identifier, contributing user, first
+  contribution time, and minimum synchronization metadata. The visible team map is
+  derived from contributions by active members; do not store a ride path here.
 - **Live presence:** team, user, current position, last update, expiry, and sharing
   status. Do not use it as a ride-history table.
 - **Team audit event:** actor, event type, affected user or object, and timestamp,
@@ -396,20 +408,18 @@ These are deliberately optional and should follow the privacy rules above:
 2. Should historical personal cells be contributed on join, or only cells explored after
    joining? The recommended default is historical plus future cells, with explicit
    consent.
-3. Do shared cells remain after a member leaves? Recommended default: yes, because the
-   team's map is a durable collective artifact.
-4. What is the maximum team size, and is it different for free or future paid plans?
-5. Should Officers be allowed to kick members, or only invite and review recommendations?
-6. What logo formats, storage limits, and moderation rules are acceptable?
-7. How precise and how frequently should live positions be updated?
-8. Should a user be able to hide live position from a particular member, or only from
+3. What is the maximum team size, and is it different for free or future paid plans?
+4. Should Officers be allowed to kick members, or only invite and review recommendations?
+5. What logo formats, storage limits, and moderation rules are acceptable?
+6. How precise and how frequently should live positions be updated?
+7. Should a user be able to hide live position from a particular member, or only from the
    the whole team?
-9. Should team map tiles show discovery dates or remain tile-only?
-10. What notifications are needed for invitations, recommendations, role changes, and
+8. Should team map tiles show discovery dates or remain tile-only?
+9. What notifications are needed for invitations, recommendations, role changes, and
     team removal?
-11. Should a team have an archive mode instead of immediate deletion?
-12. Should email invitations for users who have not registered be supported later?
-13. What export and deletion guarantees are required for team data under account removal?
+10. Should a team have an archive mode instead of immediate deletion?
+11. Should email invitations for users who have not registered be supported later?
+12. What export and deletion guarantees are required for team data under account removal?
 
 ## Related Documentation
 
