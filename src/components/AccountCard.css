@@ -235,3 +235,47 @@
   color: #231b04;
   font-size: 11px;
 }
+
+.account-local-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid rgba(255, 210, 87, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 210, 87, 0.07);
+}
+
+.account-local-progress__heading {
+  color: var(--coin);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.account-local-progress p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.account-local-progress p .coin-amount {
+  vertical-align: middle;
+}
+
+.account-local-progress__error {
+  color: #ffb4a9;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.account-local-progress__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-local-progress__actions .btn {
+  flex: 1 1 160px;
+}

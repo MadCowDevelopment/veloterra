@@ -2,6 +2,7 @@
 
 | Version | Date | Author | Change |
 |---|---|---|---|
+| 1.15 | 2026-09-26 | VeloTerra maintainers | Added account-scoped local progress, safe legacy migration, and explicit claiming for signed-out device data. |
 | 1.14 | 2026-09-26 | VeloTerra maintainers | Added Microsoft OAuth through Microsoft Entra ID alongside Google authentication for optional Supabase-backed account sync. |
 | 1.13 | 2026-09-25 | VeloTerra maintainers | Documented the first-release team collaboration boundary, RLS controls, offline contribution outbox, live presence expiry, and remaining hosted validation gates. |
 | 1.12 | 2026-09-25 | VeloTerra maintainers | Restricted database function execution to explicit Data API roles and removed unnecessary definer rights from contributor lookup. |

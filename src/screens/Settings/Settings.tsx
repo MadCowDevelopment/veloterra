@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { SubPage } from '../../components/SubPage'
 import { AccountCard } from '../../components/AccountCard'
-import { db } from '../../data/db'
+import { db, dbReady, scopeForUser } from '../../data/db'
 import { clearRides } from '../../lib/rides'
 import { useWallet } from '../../state/wallet'
 import { useExplored } from '../../state/explored'
+import { useAuth } from '../../state/auth'
 import {
   EXPLORE_HEX_ZOOM_MAX,
   EXPLORE_HEX_ZOOM_MIN,
@@ -17,6 +18,7 @@ export function Settings() {
   const [confirming, setConfirming] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [done, setDone] = useState(false)
+  const userId = useAuth((state) => state.user?.id ?? null)
 
   const resetExplored = useExplored((s) => s.reset)
   const resetWallet = useWallet((s) => s.reset)
@@ -24,8 +26,8 @@ export function Settings() {
   const setExploreHexZoom = usePrefs((s) => s.setExploreHexZoom)
 
   useEffect(() => {
-    db.cells.count().then(setCount)
-  }, [])
+    void dbReady.then(() => db.scopedCells.where('scope').equals(scopeForUser(userId)).count()).then(setCount)
+  }, [userId])
 
   const needsHard = count > 1000
   const canReset = !needsHard || confirmText.trim().toUpperCase() === 'RESET'

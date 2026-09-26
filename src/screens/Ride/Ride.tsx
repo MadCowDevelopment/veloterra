@@ -53,6 +53,7 @@ export function Ride() {
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const phaseRef = useRef<Phase>('idle')
   const lastPresenceSent = useRef(0)
+  const rideScope = useRef<string | null>(null)
 
   const user = useAuth((state) => state.user)
   const teams = useTeams((state) => state.teams)
@@ -82,6 +83,7 @@ export function Ride() {
   const finishRideStat = useWallet((s) => s.finishRide)
   const loadExplored = useExplored((s) => s.load)
   const reveal = useExplored((s) => s.reveal)
+  const localScope = useExplored((s) => s.scope)
   const discoverLandmarks = useLandmarks((s) => s.discoverAround)
   const landmarks = useLandmarks((s) => s.landmarks)
 
@@ -196,6 +198,7 @@ export function Ride() {
   }, [liveShareEnabled, liveTeamId, stopPresence, user])
 
   const start = () => {
+    rideScope.current = localScope
     startedAt.current = Date.now()
     runningSince.current = Date.now()
     lastPoint.current = null
@@ -241,7 +244,7 @@ export function Ride() {
         newCells: newCellsThisRide,
         path: path.current,
         maxSpeedKmh: Math.round(maxSpeed.current * 10) / 10,
-      })
+      }, rideScope.current ?? localScope)
       if (!simulated) syncNow() // simulated progress must stay local
       navigate(`/rides/${id}`)
       return

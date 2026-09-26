@@ -73,6 +73,7 @@ export function ExplorationMap({
   const cells = useMemo(() => {
     if (!teamView || teamCells == null) return personalCells
     return new Map(teamCells.map((h3) => [h3, {
+      scope: 'team',
       h3,
       firstVisited: 0,
       lastVisited: 0,

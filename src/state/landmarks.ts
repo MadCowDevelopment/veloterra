@@ -69,9 +69,7 @@ function fromRow(row: LandmarkRow): Landmark {
   }
 }
 
-async function syncProfile() {
-  const user = useAuth.getState().user
-  if (!user) return
+async function syncProfile(user: NonNullable<ReturnType<typeof useAuth.getState>['user']>) {
   if (syncedProfileUserId === user.id) return
   const displayName = user.user_metadata.full_name ?? user.user_metadata.name ?? user.email ?? 'VeloTerra rider'
   const avatarUrl = user.user_metadata.avatar_url ?? user.user_metadata.picture ?? null
@@ -80,10 +78,10 @@ async function syncProfile() {
 }
 
 let syncedProfileUserId: string | null = null
-const discoveredRideAreas = new Set<string>()
-const discoveringRideAreas = new Set<string>()
+const discoveredRideAreas = new Map<string, Set<string>>()
+const discoveringRideAreas = new Map<string, Set<string>>()
+const discoveryBlockedUntil = new Map<string, number>()
 const DISCOVERY_AREA_STEP = 0.02
-let discoveryBlockedUntil = 0
 
 function nextUtcDay(): number {
   const now = new Date()
@@ -150,12 +148,18 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
   },
 
   discoverAround: async (latitude, longitude) => {
-    if (!useAuth.getState().user) return false
-    if (Date.now() < discoveryBlockedUntil) return false
+    const user = useAuth.getState().user
+    if (!user) return false
+    const userId = user.id
+    const discovered = discoveredRideAreas.get(userId) ?? new Set<string>()
+    const discovering = discoveringRideAreas.get(userId) ?? new Set<string>()
+    discoveredRideAreas.set(userId, discovered)
+    discoveringRideAreas.set(userId, discovering)
+    if (Date.now() < (discoveryBlockedUntil.get(userId) ?? 0)) return false
     const area = `${Math.round(latitude / DISCOVERY_AREA_STEP)}:${Math.round(longitude / DISCOVERY_AREA_STEP)}`
-    if (discoveredRideAreas.has(area) || discoveringRideAreas.has(area)) return true
+    if (discovered.has(area) || discovering.has(area)) return true
 
-    discoveringRideAreas.add(area)
+    discovering.add(area)
     try {
       const areaLatitude = Math.round(latitude / DISCOVERY_AREA_STEP) * DISCOVERY_AREA_STEP
       const areaLongitude = Math.round(longitude / DISCOVERY_AREA_STEP) * DISCOVERY_AREA_STEP
@@ -169,34 +173,37 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
         body: bounds,
       })
       if (error) throw error
-      discoveredRideAreas.add(area)
+      if (useAuth.getState().user?.id !== userId) return false
+      discovered.add(area)
       if (Number(data?.discovered) > 0) set((state) => ({ revision: state.revision + 1 }))
       await get().loadBounds(bounds)
       return true
     } catch (error) {
-      if (isDailyDiscoveryLimit(error)) discoveryBlockedUntil = nextUtcDay()
+      if (isDailyDiscoveryLimit(error)) discoveryBlockedUntil.set(userId, nextUtcDay())
       set({ error: await errorMessage(error) })
       return false
     } finally {
-      discoveringRideAreas.delete(area)
+      discovering.delete(area)
     }
   },
 
   contribute: async (landmarkId, amount, idempotencyKey = crypto.randomUUID()) => {
     const user = useAuth.getState().user
     if (!user) throw new Error('Sign in to contribute')
+    const userId = user.id
     const copper = Math.floor(amount)
     if (!Number.isSafeInteger(copper) || copper < MIN_LANDMARK_CONTRIBUTION_COPPER) {
       throw new Error('The minimum contribution is 1 gold')
     }
 
-    await syncProfile()
+    await syncProfile(user)
     const { data, error } = await supabase.rpc('contribute_to_landmark', {
       p_landmark_id: landmarkId,
       p_requested_amount: copper,
       p_idempotency_key: idempotencyKey,
     })
     if (error) throw error
+    if (useAuth.getState().user?.id !== userId) throw new Error('The active account changed')
     if (!data || typeof data !== 'object') throw new Error('Invalid contribution response')
 
     const result = data as ContributionResult

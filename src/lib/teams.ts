@@ -9,8 +9,6 @@ import type {
   TeamRole,
 } from '../domain/teams'
 
-const TEAM_CELL_PAGE_SIZE = 1000
-const TEAM_CELL_WRITE_BATCH_SIZE = 500
 const TEAM_AUDIT_PAGE_SIZE = 50
 
 function teamRole(value: unknown): TeamRole {
@@ -117,25 +115,9 @@ export async function getTeamRecommendations(teamId: string): Promise<TeamRecomm
 }
 
 export async function getTeamCells(teamId: string): Promise<string[]> {
-  const cells = new Set<string>()
-  let offset = 0
-
-  while (true) {
-    const { data, error } = await supabase
-      .from('team_explored_cells')
-      .select('h3')
-      .eq('team_id', teamId)
-      .order('h3')
-      .range(offset, offset + TEAM_CELL_PAGE_SIZE - 1)
-    if (error) throw error
-
-    const page = (data ?? []) as Array<{ h3: string }>
-    page.forEach((row) => cells.add(row.h3))
-    if (page.length < TEAM_CELL_PAGE_SIZE) break
-    offset += TEAM_CELL_PAGE_SIZE
-  }
-
-  return [...cells]
+  const { data, error } = await supabase.rpc('get_team_cells', { p_team_id: teamId })
+  if (error) throw error
+  return ((data ?? []) as Array<{ h3: string }>).map((row) => row.h3)
 }
 
 export async function getTeamPresence(teamId: string): Promise<TeamPresence[]> {
@@ -284,15 +266,13 @@ export async function deleteTeam(teamId: string): Promise<void> {
   if (error) throw error
 }
 
-export async function addTeamCells(teamId: string, userId: string, cells: string[]): Promise<void> {
-  for (let offset = 0; offset < cells.length; offset += TEAM_CELL_WRITE_BATCH_SIZE) {
-    const batch = cells.slice(offset, offset + TEAM_CELL_WRITE_BATCH_SIZE)
-    const { error } = await supabase.from('team_explored_cells').upsert(
-      batch.map((h3) => ({ team_id: teamId, h3, user_id: userId })),
-      { onConflict: 'team_id,h3,user_id', ignoreDuplicates: true },
-    )
-    if (error) throw error
-  }
+export async function addTeamCells(teamId: string, cells: string[]): Promise<void> {
+  if (!cells.length) return
+  const { error } = await supabase.rpc('add_team_cells', {
+    p_team_id: teamId,
+    p_cells: cells,
+  })
+  if (error) throw error
 }
 
 export async function upsertLivePresence(

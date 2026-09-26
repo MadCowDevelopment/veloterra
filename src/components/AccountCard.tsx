@@ -6,6 +6,14 @@ import { useTeams } from '../state/teams'
 import { TEAM_LOGO_LIMIT_BYTES, validateUsername } from '../domain/teams'
 import { lookupUsername } from '../lib/profile'
 import { useSync, syncNow } from '../lib/sync'
+import { CoinAmount } from './CoinAmount'
+import {
+  claimUnassignedProgress,
+  getUnassignedProgress,
+  isInitialClaimResolved,
+  resolveInitialClaim,
+  type LocalProgressSummary,
+} from '../lib/localProgress'
 import './AccountCard.css'
 
 function GoogleLogo() {
@@ -44,10 +52,65 @@ export function AccountCard() {
   const claimUsername = useProfile((s) => s.claimUsername)
   const teamCount = useTeams((s) => s.teams.length)
   const invitationCount = useTeams((s) => s.invitations.length)
+  const syncStatus = useSync((s) => s.status)
+  const [localProgress, setLocalProgress] = useState<LocalProgressSummary | null>(null)
+  const [initialClaimResolved, setInitialClaimResolved] = useState(isInitialClaimResolved)
+  const [claiming, setClaiming] = useState(false)
+  const [claimError, setClaimError] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) void loadProfile()
   }, [loadProfile, user])
+
+  useEffect(() => {
+    let active = true
+    setInitialClaimResolved(isInitialClaimResolved())
+    setClaimError(null)
+    if (!user) {
+      setLocalProgress(null)
+      return () => { active = false }
+    }
+    void getUnassignedProgress()
+      .then((summary) => {
+        if (!active) return
+        setLocalProgress(summary)
+        if (!isInitialClaimResolved() && !summary.hasAny) {
+          resolveInitialClaim()
+          setInitialClaimResolved(true)
+        }
+      })
+      .catch((error) => {
+        if (active) setClaimError(error instanceof Error ? error.message : 'Could not inspect local progress')
+      })
+    return () => { active = false }
+  }, [user?.id])
+
+  const claimLocalProgress = async () => {
+    if (!user || claiming) return
+    setClaiming(true)
+    setClaimError(null)
+    try {
+      if (useSync.getState().status !== 'synced') {
+        await syncNow()
+        if (useSync.getState().status !== 'synced') {
+          throw new Error('Sync this account before claiming local progress.')
+        }
+      }
+      await claimUnassignedProgress(user.id, initialClaimResolved ? 'additional' : 'initial')
+      setInitialClaimResolved(true)
+      setLocalProgress(await getUnassignedProgress())
+      void syncNow()
+    } catch (error) {
+      setClaimError(error instanceof Error ? error.message : 'Could not claim local progress')
+    } finally {
+      setClaiming(false)
+    }
+  }
+
+  const keepLocalProgress = () => {
+    resolveInitialClaim()
+    setInitialClaimResolved(true)
+  }
 
   return (
     <div className="card">
@@ -88,6 +151,17 @@ export function AccountCard() {
             onSave={saveProfile}
             onClaimUsername={claimUsername}
           />
+          {localProgress?.hasAny && (
+            <LocalProgressNotice
+              summary={localProgress}
+              initial={!initialClaimResolved}
+              claiming={claiming}
+              error={claimError}
+              syncBlocked={syncStatus === 'syncing'}
+              onClaim={() => void claimLocalProgress()}
+              onKeep={keepLocalProgress}
+            />
+          )}
           <SyncLine />
           <Link to="/teams" className="account-teams-link">
             <span>
@@ -103,6 +177,51 @@ export function AccountCard() {
         </>
       )}
     </div>
+  )
+}
+
+function LocalProgressNotice({
+  summary,
+  initial,
+  claiming,
+  error,
+  syncBlocked,
+  onClaim,
+  onKeep,
+}: {
+  summary: LocalProgressSummary
+  initial: boolean
+  claiming: boolean
+  error: string | null
+  syncBlocked: boolean
+  onClaim: () => void
+  onKeep: () => void
+}) {
+  return (
+    <section className="account-local-progress">
+      <div className="account-local-progress__heading">Local progress on this device</div>
+      <p>
+        {summary.cellCount.toLocaleString()} explored {summary.cellCount === 1 ? 'tile' : 'tiles'}
+        {summary.rideCount > 0 && <> · {summary.rideCount} {summary.rideCount === 1 ? 'ride' : 'rides'}</>}
+        {summary.wallet.balance > 0 && <> · <CoinAmount copper={summary.wallet.balance} size="sm" /></>}
+      </p>
+      {initial ? (
+        <p>This progress has not been associated with an account yet.</p>
+      ) : (
+        <p>It is separate from this account and remains on this device until you claim it.</p>
+      )}
+      {error && <div className="account-local-progress__error">{error}</div>}
+      <div className="account-local-progress__actions">
+        <button className="btn btn--primary" onClick={onClaim} disabled={claiming || syncBlocked}>
+          {claiming ? 'Claiming…' : syncBlocked ? 'Syncing account…' : initial ? 'Use with this account' : 'Claim local progress'}
+        </button>
+        {initial && (
+          <button className="btn btn--ghost" onClick={onKeep} disabled={claiming}>
+            Keep separate for now
+          </button>
+        )}
+      </div>
+    </section>
   )
 }
 

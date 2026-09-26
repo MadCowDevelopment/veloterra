@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { db, type TeamOutboxRow } from '../data/db'
+import { db, dbReady, type TeamOutboxRow } from '../data/db'
 import { useAuth } from './auth'
+import { useExplored } from './explored'
 import {
   addTeamCells,
   changeTeamMemberRole,
@@ -36,6 +37,8 @@ import type {
   TeamPresence,
   TeamRecommendation,
 } from '../domain/teams'
+
+const TEAM_CELL_WRITE_BATCH_SIZE = 500
 
 export type TeamSyncStatus = 'idle' | 'syncing' | 'synced' | 'error'
 
@@ -101,7 +104,8 @@ function outboxId(teamId: string, userId: string, h3: string): string {
 }
 
 async function queueTeamCells(teamId: string, userId: string): Promise<number> {
-  const cells = await db.cells.toArray()
+  await dbReady
+  const cells = await db.scopedCells.where('scope').equals(userId).toArray()
   const existing = await db.teamOutbox
     .where('teamId')
     .equals(teamId)
@@ -122,12 +126,18 @@ async function queueTeamCells(teamId: string, userId: string): Promise<number> {
 }
 
 async function clearTeamOutbox(teamId: string, userId: string): Promise<void> {
+  await dbReady
   await db.teamOutbox.where('teamId').equals(teamId).and((row) => row.userId === userId).delete()
 }
 
 async function pendingCount(userId: string | null): Promise<number> {
   if (!userId) return 0
+  await dbReady
   return db.teamOutbox.where('userId').equals(userId).and((row) => !row.syncedAt).count()
+}
+
+function isActiveAccount(userId: string): boolean {
+  return useAuth.getState().user?.id === userId && useExplored.getState().scope === userId
 }
 
 const refreshingTeamIds = new Map<string, Promise<void>>()
@@ -446,6 +456,8 @@ export const useTeams = create<TeamsState>()(
       sync: async () => {
         const user = useAuth.getState().user
         if (!user) return
+        const userId = user.id
+        if (!isActiveAccount(userId)) return
         let teams = get().teams
         try {
           const latestTeams = await getMyTeams()
@@ -471,28 +483,32 @@ export const useTeams = create<TeamsState>()(
           // Keep the last synchronized team view when the account endpoint is offline.
         }
         if (!teams.length) {
-          set({ pendingCellCount: await pendingCount(user.id) })
+          set({ pendingCellCount: await pendingCount(userId) })
           return
         }
         set({ syncStatus: 'syncing', error: null })
         let failed = false
         for (const team of teams) {
+          if (!isActiveAccount(userId)) return
           try {
-            await queueTeamCells(team.id, user.id)
+            await queueTeamCells(team.id, userId)
             const queued = await db.teamOutbox
               .where('teamId')
               .equals(team.id)
-              .and((row) => row.userId === user.id && !row.syncedAt)
+              .and((row) => row.userId === userId && !row.syncedAt)
               .toArray()
-            if (queued.length) {
-              await addTeamCells(team.id, user.id, queued.map((row) => row.h3))
-              await db.teamOutbox.bulkPut(queued.map((row) => ({ ...row, syncedAt: Date.now() })))
+            for (let offset = 0; offset < queued.length; offset += TEAM_CELL_WRITE_BATCH_SIZE) {
+              const batch = queued.slice(offset, offset + TEAM_CELL_WRITE_BATCH_SIZE)
+              await addTeamCells(team.id, batch.map((row) => row.h3))
+              const syncedAt = Date.now()
+              await db.teamOutbox.bulkPut(batch.map((row) => ({ ...row, syncedAt })))
             }
+            if (!isActiveAccount(userId)) return
             const cells = await getTeamCells(team.id)
             set((state) => ({ cellsByTeam: { ...state.cellsByTeam, [team.id]: cells } }))
           } catch (error) {
             if (isMembershipRevoked(error)) {
-              await clearTeamOutbox(team.id, user.id)
+              await clearTeamOutbox(team.id, userId)
               set((state) => ({
                 teams: state.teams.filter((candidate) => candidate.id !== team.id),
                 selectedTeamId: state.selectedTeamId === team.id
@@ -517,7 +533,7 @@ export const useTeams = create<TeamsState>()(
         set({
           syncStatus: failed ? 'error' : 'synced',
           lastSyncedAt: failed ? get().lastSyncedAt : Date.now(),
-          pendingCellCount: await pendingCount(user.id),
+          pendingCellCount: await pendingCount(userId),
         })
       },
 

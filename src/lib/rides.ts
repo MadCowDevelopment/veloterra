@@ -1,19 +1,29 @@
-import { db, type RideRow } from '../data/db'
+import { db, dbReady, scopeForUser, type RideRow } from '../data/db'
+import { useAuth } from '../state/auth'
 
-export async function addRide(data: Omit<RideRow, 'id'>): Promise<string> {
+function currentScope(): string {
+  return scopeForUser(useAuth.getState().user?.id)
+}
+
+export async function addRide(data: Omit<RideRow, 'id' | 'scope'>, scope = currentScope()): Promise<string> {
+  await dbReady
   const id = crypto.randomUUID()
-  await db.rides.put({ id, ...data })
+  await db.scopedRides.put({ id, scope, ...data })
   return id
 }
 
-export function listRides(): Promise<RideRow[]> {
-  return db.rides.orderBy('startedAt').reverse().toArray()
+export async function listRides(): Promise<RideRow[]> {
+  await dbReady
+  const rides = await db.scopedRides.where('scope').equals(currentScope()).toArray()
+  return rides.sort((left, right) => right.startedAt - left.startedAt)
 }
 
-export function getRide(id: string): Promise<RideRow | undefined> {
-  return db.rides.get(id)
+export async function getRide(id: string): Promise<RideRow | undefined> {
+  await dbReady
+  return db.scopedRides.get([currentScope(), id])
 }
 
-export function clearRides(): Promise<void> {
-  return db.rides.clear()
+export async function clearRides(): Promise<void> {
+  await dbReady
+  await db.scopedRides.where('scope').equals(currentScope()).delete()
 }
