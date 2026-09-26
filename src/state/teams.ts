@@ -142,6 +142,7 @@ export const useTeams = create<TeamsState>()(
       lastSyncedAt: null,
 
       load: async () => {
+        if (get().loading) return
         const user = useAuth.getState().user
         if (!user) {
           get().clear()

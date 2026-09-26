@@ -48,16 +48,11 @@ export function Teams() {
   const profile = useProfile((state) => state.profile)
   const teams = useTeams((state) => state.teams)
   const invitations = useTeams((state) => state.invitations)
-  const loadTeams = useTeams((state) => state.load)
   const selectedTeamId = useTeams((state) => state.selectedTeamId)
   const selectTeam = useTeams((state) => state.selectTeam)
   const loading = useTeams((state) => state.loading)
   const error = useTeams((state) => state.error)
   const [view, setView] = useState<'list' | 'create'>(teamId ? 'list' : 'list')
-
-  useEffect(() => {
-    if (user) void loadTeams()
-  }, [loadTeams, user])
 
   useEffect(() => {
     if (teamId && teams.some((team) => team.id === teamId)) selectTeam(teamId)
