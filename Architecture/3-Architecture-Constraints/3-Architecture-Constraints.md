@@ -28,7 +28,7 @@ Document technical, organizational, operational, and legal constraints that shap
 - Dexie/IndexedDB for structured local persistence.
 - Zustand for application state.
 - Workbox through `vite-plugin-pwa` for app-shell and map caching.
-- Supabase and Google OAuth for optional cloud identity and storage.
+- Supabase and Google/Microsoft OAuth for optional cloud identity and storage.
 
 ## Operational and Legal Constraints
 

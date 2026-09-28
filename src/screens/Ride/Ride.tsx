@@ -13,6 +13,9 @@ import { MapStylePicker } from '../../components/MapStylePicker'
 import { addRide } from '../../lib/rides'
 import { syncNow } from '../../lib/sync'
 import { usePrefs } from '../../state/prefs'
+import { useAuth } from '../../state/auth'
+import { useTeams } from '../../state/teams'
+import type { Team } from '../../domain/teams'
 import './Ride.css'
 
 type Phase = 'idle' | 'tracking' | 'paused'
@@ -36,6 +39,9 @@ export function Ride() {
   const [elapsedMs, setElapsedMs] = useState(0)
   const [now, setNow] = useState(Date.now())
   const [hudVisible, setHudVisible] = useState(true)
+  const [liveShareEnabled, setLiveShareEnabled] = useState(false)
+  const [liveTeamId, setLiveTeamId] = useState('')
+  const [isLeaving, setIsLeaving] = useState(false)
   const headingUp = usePrefs((state) => state.headingUp)
   const setHeadingUp = usePrefs((state) => state.setHeadingUp)
 
@@ -47,12 +53,39 @@ export function Ride() {
   const popId = useRef(0)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const phaseRef = useRef<Phase>('idle')
+  const lastPresenceSent = useRef(0)
+  const rideScope = useRef<string | null>(null)
+  const leavingRef = useRef(false)
 
+  const user = useAuth((state) => state.user)
+  const teams = useTeams((state) => state.teams)
+  const selectedTeamId = useTeams((state) => state.selectedTeamId)
+  const refreshTeam = useTeams((state) => state.refreshTeam)
+  const sendPresence = useTeams((state) => state.sendPresence)
+  const stopPresence = useTeams((state) => state.stopPresence)
+  const liveTeam = teams.find((team) => team.id === liveTeamId) ?? null
+  const liveTeamPresence = useTeams((state) => liveTeamId ? state.presenceByTeam[liveTeamId] ?? [] : [])
+  const liveTeamMembers = useTeams((state) => liveTeamId ? state.membersByTeam[liveTeamId] ?? [] : [])
+  const livePresence = useMemo(() => {
+    const members = new Map(liveTeamMembers.map((member) => [member.userId, member]))
+    return liveTeamPresence
+      .filter((presence) => presence.userId !== user?.id)
+      .map((presence) => {
+        const member = members.get(presence.userId)
+        return {
+          id: presence.userId,
+          latitude: presence.latitude,
+          longitude: presence.longitude,
+          label: member?.username ? `@${member.username}` : 'Team member',
+        }
+      })
+  }, [liveTeamMembers, liveTeamPresence, user?.id])
   const addCoins = useWallet((s) => s.add)
   const addDistance = useWallet((s) => s.addDistance)
   const finishRideStat = useWallet((s) => s.finishRide)
   const loadExplored = useExplored((s) => s.load)
   const reveal = useExplored((s) => s.reveal)
+  const localScope = useExplored((s) => s.scope)
   const discoverLandmarks = useLandmarks((s) => s.discoverAround)
   const landmarks = useLandmarks((s) => s.landmarks)
 
@@ -60,6 +93,18 @@ export function Ride() {
   useEffect(() => {
     loadExplored()
   }, [loadExplored])
+
+  useEffect(() => {
+    if (liveTeamId && teams.some((team) => team.id === liveTeamId)) return
+    setLiveTeamId(selectedTeamId && teams.some((team) => team.id === selectedTeamId) ? selectedTeamId : teams[0]?.id ?? '')
+  }, [liveTeamId, selectedTeamId, teams])
+
+  useEffect(() => {
+    if (!user || !liveTeamId) return
+    void refreshTeam(liveTeamId)
+    const timer = window.setInterval(() => void refreshTeam(liveTeamId), 15_000)
+    return () => window.clearInterval(timer)
+  }, [liveTeamId, refreshTeam, user])
 
   // Tick the clock.
   useEffect(() => {
@@ -69,7 +114,7 @@ export function Ride() {
 
   // Only accumulate distance, reveal fog and award coins while tracking.
   useEffect(() => {
-    if (phase !== 'tracking' || !fix || fix.accuracy > MAX_ACCURACY_M) return
+    if (phase !== 'tracking' || leavingRef.current || !fix || fix.accuracy > MAX_ACCURACY_M) return
 
     const point = { lng: fix.lng, lat: fix.lat }
     if (fix.speed != null && fix.speed >= 0) {
@@ -101,6 +146,21 @@ export function Ride() {
       setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 1100)
     }
   }, [fix, phase, reveal, addCoins, addDistance, discoverLandmarks, simulated])
+
+  useEffect(() => {
+    if (!liveShareEnabled || !liveTeamId || phase !== 'tracking' || !fix || !user) return
+    if (Date.now() - lastPresenceSent.current < 10_000) return
+    lastPresenceSent.current = Date.now()
+    void sendPresence(liveTeamId, fix.lat, fix.lng).catch(() => {
+      setLiveShareEnabled(false)
+    })
+  }, [fix, liveShareEnabled, liveTeamId, phase, sendPresence, user])
+
+  useEffect(() => {
+    if (!liveShareEnabled || liveTeam) return
+    setLiveShareEnabled(false)
+    if (liveTeamId) void stopPresence(liveTeamId).catch(() => undefined)
+  }, [liveShareEnabled, liveTeam, liveTeamId, stopPresence])
 
   const elapsed =
     elapsedMs +
@@ -135,12 +195,19 @@ export function Ride() {
     [],
   )
 
+  useEffect(() => () => {
+    if (liveShareEnabled && liveTeamId) void stopPresence(liveTeamId)
+  }, [liveShareEnabled, liveTeamId, stopPresence, user])
+
   const start = () => {
+    rideScope.current = localScope
     startedAt.current = Date.now()
     runningSince.current = Date.now()
     lastPoint.current = null
     path.current = []
     maxSpeed.current = 0
+    setLiveShareEnabled(false)
+    lastPresenceSent.current = 0
     setPhase('tracking')
   }
 
@@ -148,6 +215,10 @@ export function Ride() {
     const since = runningSince.current
     if (since) setElapsedMs((e) => e + (Date.now() - since))
     runningSince.current = null
+    if (liveShareEnabled && liveTeamId) {
+      void stopPresence(liveTeamId).catch(() => undefined)
+      setLiveShareEnabled(false)
+    }
     setPhase('paused')
   }
 
@@ -158,25 +229,54 @@ export function Ride() {
   }
 
   const leave = async () => {
-    if (phase !== 'idle') {
+    if (leavingRef.current) return
+    leavingRef.current = true
+    setIsLeaving(true)
+
+    const leavingPhase = phase
+    const endedAt = Date.now()
+    if (liveShareEnabled && liveTeamId) {
+      void stopPresence(liveTeamId).catch(() => undefined)
+      setLiveShareEnabled(false)
+    }
+    if (leavingPhase !== 'idle') {
       const durationMs =
-        elapsedMs + (runningSince.current ? Date.now() - runningSince.current : 0)
+        elapsedMs + (runningSince.current ? endedAt - runningSince.current : 0)
+      runningSince.current = null
       finishRideStat()
       const id = await addRide({
         startedAt: startedAt.current,
-        endedAt: Date.now(),
+        endedAt,
         durationMs,
         distanceM,
         coins: coinsThisRide,
         newCells: newCellsThisRide,
         path: path.current,
         maxSpeedKmh: Math.round(maxSpeed.current * 10) / 10,
-      })
-      if (!simulated) syncNow() // simulated progress must stay local
+      }, rideScope.current ?? localScope)
       navigate(`/rides/${id}`)
+      if (!simulated) void syncNow() // simulated progress must stay local
       return
     }
     navigate('/')
+  }
+
+  const toggleLiveSharing = async () => {
+    if (!liveTeamId || !user) return
+    if (liveShareEnabled) {
+      await stopPresence(liveTeamId).catch(() => undefined)
+      setLiveShareEnabled(false)
+      return
+    }
+    setLiveShareEnabled(true)
+    lastPresenceSent.current = 0
+  }
+
+  const changeLiveTeam = async (teamId: string) => {
+    if (liveShareEnabled && liveTeamId) await stopPresence(liveTeamId).catch(() => undefined)
+    setLiveTeamId(teamId)
+    setLiveShareEnabled(false)
+    lastPresenceSent.current = 0
   }
 
   const hidden = hudVisible ? '' : ' is-hidden'
@@ -190,11 +290,12 @@ export function Ride() {
         headingUp={headingUp}
         path={[...path.current]}
         landmarks={landmarks}
+        presence={livePresence}
         onPositionPick={simulated ? setSimulatedPosition : undefined}
       />
 
       <div className={`ride__hud ride__hud--top${hidden}`}>
-        <button className="pill-btn" onClick={leave} aria-label="Back to menu">
+        <button className="pill-btn" onClick={leave} aria-label="Back to menu" disabled={isLeaving}>
           ✕
         </button>
         <div className="ride__top-right">
@@ -219,7 +320,7 @@ export function Ride() {
             <div className="ride__hint">
               {simulated ? 'Click the map to place the rider.' : 'Look around the map, then start your ride.'}
             </div>
-            <button className="start-btn" onClick={start} disabled={!gpsReady}>
+            <button className="start-btn" onClick={start} disabled={!gpsReady || isLeaving}>
               {gpsReady ? 'Start Ride' : 'Getting GPS…'}
             </button>
           </>
@@ -253,18 +354,27 @@ export function Ride() {
             </div>
 
             {phase === 'tracking' ? (
-              <button className="pause-btn" onClick={pause}>
+              <button className="pause-btn" onClick={pause} disabled={isLeaving}>
                 Pause
               </button>
             ) : (
               <div className="ride__pauserow">
-                <button className="resume-btn" onClick={resume}>
+                <button className="resume-btn" onClick={resume} disabled={isLeaving}>
                   Resume
                 </button>
-                <button className="finish-btn" onClick={leave}>
-                  Finish
+                <button className="finish-btn" onClick={leave} disabled={isLeaving}>
+                  {isLeaving ? 'Saving…' : 'Finish'}
                 </button>
               </div>
+            )}
+            {user && teams.length > 0 && liveTeam && (
+              <LiveShareControl
+                team={liveTeam}
+                teams={teams}
+                enabled={liveShareEnabled}
+                onToggle={() => void toggleLiveSharing()}
+                onTeamChange={(teamId) => void changeLiveTeam(teamId)}
+              />
             )}
           </>
         )}
@@ -301,6 +411,35 @@ function StatusBadge({
     <div className={`gps-badge ${ok ? 'gps-badge--ok' : ''}${simulated ? ' gps-badge--simulated' : ''}`}>
       <span className="gps-badge__dot" />
       {label}
+    </div>
+  )
+}
+
+function LiveShareControl({
+  team,
+  teams,
+  enabled,
+  onToggle,
+  onTeamChange,
+}: {
+  team: Team
+  teams: Team[]
+  enabled: boolean
+  onToggle: () => void
+  onTeamChange: (teamId: string) => void
+}) {
+  return (
+    <div className={`live-share${enabled ? ' live-share--active' : ''}`}>
+      {teams.length > 1 && (
+        <select value={team.id} onChange={(event) => onTeamChange(event.target.value)} aria-label="Team that can see the live position">
+          {teams.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
+        </select>
+      )}
+      <label className="live-share__toggle">
+        <span>Share live position with {team.name}</span>
+        <input type="checkbox" checked={enabled} onChange={onToggle} />
+        <i aria-hidden="true" />
+      </label>
     </div>
   )
 }

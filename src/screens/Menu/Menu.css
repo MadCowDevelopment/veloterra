@@ -102,11 +102,17 @@
   gap: 12px;
 }
 
+.menu__teams-link {
+  min-height: 48px;
+  color: var(--accent);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
+  padding: 0 18px;
   height: 58px;
   border-radius: var(--radius);
   border: 1px solid var(--border);

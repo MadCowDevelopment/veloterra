@@ -4,6 +4,7 @@ import { useAuth } from './auth'
 import { MIN_LANDMARK_CONTRIBUTION_COPPER } from '../domain/economy'
 import { useWallet } from './wallet'
 import type { Landmark, LandmarkBounds, LandmarkCategory } from '../domain/landmarks'
+import { saveMyProfile, suggestedDisplayName } from '../lib/profile'
 
 interface LandmarkRow {
   id: string
@@ -68,27 +69,26 @@ function fromRow(row: LandmarkRow): Landmark {
   }
 }
 
-async function syncProfile() {
-  const user = useAuth.getState().user
-  if (!user) return
+function mergeLandmarks(existing: Landmark[], incoming: Landmark[]): Landmark[] {
+  const byId = new Map(existing.map((landmark) => [landmark.id, landmark]))
+  for (const landmark of incoming) byId.set(landmark.id, landmark)
+  return [...byId.values()]
+}
+
+async function syncProfile(user: NonNullable<ReturnType<typeof useAuth.getState>['user']>) {
   if (syncedProfileUserId === user.id) return
   const displayName = user.user_metadata.full_name ?? user.user_metadata.name ?? user.email ?? 'VeloTerra rider'
   const avatarUrl = user.user_metadata.avatar_url ?? user.user_metadata.picture ?? null
-  const { error } = await supabase.from('profiles').upsert({
-    user_id: user.id,
-    display_name: String(displayName).slice(0, 80),
-    avatar_url: avatarUrl,
-    updated_at: new Date().toISOString(),
-  })
-  if (error) throw error
+  await saveMyProfile(String(displayName || suggestedDisplayName(user)).slice(0, 80), avatarUrl)
   syncedProfileUserId = user.id
 }
 
 let syncedProfileUserId: string | null = null
-const discoveredRideAreas = new Set<string>()
-const discoveringRideAreas = new Set<string>()
+const discoveredRideAreas = new Map<string, Set<string>>()
+const discoveringRideAreas = new Map<string, Set<string>>()
+const discoveryBlockedUntil = new Map<string, number>()
+let latestBoundsRequestId = 0
 const DISCOVERY_AREA_STEP = 0.02
-let discoveryBlockedUntil = 0
 
 function nextUtcDay(): number {
   const now = new Date()
@@ -127,11 +127,14 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
   clearError: () => set({ error: null }),
 
   loadBounds: async (bounds) => {
-    if (!useAuth.getState().user) {
+    const requestId = ++latestBoundsRequestId
+    const requestUser = useAuth.getState().user
+    if (!requestUser) {
       set({ landmarks: [], loading: false, error: null })
       return false
     }
 
+    const requestUserId = requestUser.id
     set({ loading: true, error: null })
     try {
       const { data, error } = await supabase
@@ -144,23 +147,32 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
         .order('tier', { ascending: false })
         .limit(500)
       if (error) throw error
-      set({ landmarks: (data as LandmarkRow[]).map(fromRow) })
+      if (useAuth.getState().user?.id !== requestUserId) return false
+      const loaded = (data as LandmarkRow[]).map(fromRow)
+      set((state) => ({ landmarks: mergeLandmarks(state.landmarks, loaded) }))
       return true
     } catch (error) {
+      if (useAuth.getState().user?.id !== requestUserId) return false
       set({ error: await errorMessage(error) })
       return false
     } finally {
-      set({ loading: false })
+      if (requestId === latestBoundsRequestId) set({ loading: false })
     }
   },
 
   discoverAround: async (latitude, longitude) => {
-    if (!useAuth.getState().user) return false
-    if (Date.now() < discoveryBlockedUntil) return false
+    const user = useAuth.getState().user
+    if (!user) return false
+    const userId = user.id
+    const discovered = discoveredRideAreas.get(userId) ?? new Set<string>()
+    const discovering = discoveringRideAreas.get(userId) ?? new Set<string>()
+    discoveredRideAreas.set(userId, discovered)
+    discoveringRideAreas.set(userId, discovering)
+    if (Date.now() < (discoveryBlockedUntil.get(userId) ?? 0)) return false
     const area = `${Math.round(latitude / DISCOVERY_AREA_STEP)}:${Math.round(longitude / DISCOVERY_AREA_STEP)}`
-    if (discoveredRideAreas.has(area) || discoveringRideAreas.has(area)) return true
+    if (discovered.has(area) || discovering.has(area)) return true
 
-    discoveringRideAreas.add(area)
+    discovering.add(area)
     try {
       const areaLatitude = Math.round(latitude / DISCOVERY_AREA_STEP) * DISCOVERY_AREA_STEP
       const areaLongitude = Math.round(longitude / DISCOVERY_AREA_STEP) * DISCOVERY_AREA_STEP
@@ -174,34 +186,37 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
         body: bounds,
       })
       if (error) throw error
-      discoveredRideAreas.add(area)
+      if (useAuth.getState().user?.id !== userId) return false
+      discovered.add(area)
       if (Number(data?.discovered) > 0) set((state) => ({ revision: state.revision + 1 }))
       await get().loadBounds(bounds)
       return true
     } catch (error) {
-      if (isDailyDiscoveryLimit(error)) discoveryBlockedUntil = nextUtcDay()
+      if (isDailyDiscoveryLimit(error)) discoveryBlockedUntil.set(userId, nextUtcDay())
       set({ error: await errorMessage(error) })
       return false
     } finally {
-      discoveringRideAreas.delete(area)
+      discovering.delete(area)
     }
   },
 
   contribute: async (landmarkId, amount, idempotencyKey = crypto.randomUUID()) => {
     const user = useAuth.getState().user
     if (!user) throw new Error('Sign in to contribute')
+    const userId = user.id
     const copper = Math.floor(amount)
     if (!Number.isSafeInteger(copper) || copper < MIN_LANDMARK_CONTRIBUTION_COPPER) {
       throw new Error('The minimum contribution is 1 gold')
     }
 
-    await syncProfile()
+    await syncProfile(user)
     const { data, error } = await supabase.rpc('contribute_to_landmark', {
       p_landmark_id: landmarkId,
       p_requested_amount: copper,
       p_idempotency_key: idempotencyKey,
     })
     if (error) throw error
+    if (useAuth.getState().user?.id !== userId) throw new Error('The active account changed')
     if (!data || typeof data !== 'object') throw new Error('Invalid contribution response')
 
     const result = data as ContributionResult

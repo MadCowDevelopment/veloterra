@@ -22,7 +22,7 @@ offline-first web app built around a real-world fog-of-war map.
 - Multiple live-switchable MapLibre map styles
 - Downloadable offline map regions with size estimates and saved-area management
 - Local-first storage for explored cells, rides, wallet, and preferences
-- Optional Google sign-in to back up and merge progress across devices with Supabase
+- Optional Google or Microsoft sign-in to back up and merge progress across devices with Supabase
 - Installable PWA with automatic deployment to GitHub Pages
 
 Tracking is intentionally foreground-only. The Wake Lock API keeps the screen awake
@@ -89,7 +89,7 @@ Offline downloads rely on the service worker and therefore do not persist while 
 
 ## Data and sync
 
-Progress is stored locally in IndexedDB and does not require an account. Google sign-in
+Progress is stored locally in IndexedDB and does not require an account. Google or Microsoft sign-in
 is optional; when enabled, explored cells and rides are merged across devices and wallet
 progress is reconciled through Supabase. Individual ride traces and live locations are
 not published as a social map.

@@ -18,6 +18,7 @@ interface Props {
   headingUp?: boolean
   path?: [number, number][]
   landmarks?: Landmark[]
+  presence?: Array<{ id: string; label: string; latitude: number; longitude: number }>
   onPositionPick?: (lng: number, lat: number) => void
 }
 
@@ -43,11 +44,12 @@ function bearing(a: GeoFix, b: GeoFix): number {
   return ((θ * 180) / Math.PI + 360) % 360
 }
 
-export function RideMap({ fix, follow, headingUp = false, path = [], landmarks = [], onPositionPick }: Props) {
+export function RideMap({ fix, follow, headingUp = false, path = [], landmarks = [], presence = [], onPositionPick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
   const landmarkMarkersRef = useRef(new Map<string, RideLandmarkMarker>())
+  const presenceMarkersRef = useRef<Marker[]>([])
   const readyRef = useRef(false)
   const centeredRef = useRef(false)
   const followRef = useRef(follow)
@@ -237,6 +239,8 @@ export function RideMap({ fix, follow, headingUp = false, path = [], landmarks =
     return () => {
       landmarkMarkersRef.current.forEach(({ marker }) => marker.remove())
       landmarkMarkersRef.current.clear()
+      presenceMarkersRef.current.forEach((marker) => marker.remove())
+      presenceMarkersRef.current = []
       map.remove()
       mapRef.current = null
       markerRef.current = null
@@ -335,6 +339,34 @@ export function RideMap({ fix, follow, headingUp = false, path = [], landmarks =
       landmarkMarkersRef.current.set(id, { marker, kind })
     }
   }, [fix, landmarks, revision])
+
+  useEffect(() => {
+    const map = mapRef.current
+    presenceMarkersRef.current.forEach((marker) => marker.remove())
+    presenceMarkersRef.current = []
+    if (!map) return
+
+    presenceMarkersRef.current = presence.map((person) => {
+      const element = document.createElement('div')
+      element.className = 'team-presence-marker'
+      element.title = `${person.label} is sharing a live position`
+      element.setAttribute('aria-label', `${person.label} is sharing a live position`)
+      const dot = document.createElement('span')
+      dot.className = 'team-presence-marker__dot'
+      const label = document.createElement('span')
+      label.className = 'team-presence-marker__label'
+      label.textContent = person.label
+      element.append(dot, label)
+      return new Marker({ element, anchor: 'bottom' })
+        .setLngLat([person.longitude, person.latitude])
+        .addTo(map)
+    })
+
+    return () => {
+      presenceMarkersRef.current.forEach((marker) => marker.remove())
+      presenceMarkersRef.current = []
+    }
+  }, [presence])
 
   // Update the marker every fix; recenter once initially, then only while following.
   useEffect(() => {

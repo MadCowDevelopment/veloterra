@@ -1,5 +1,19 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../state/auth'
+import { useProfile } from '../state/profile'
+import { useTeams } from '../state/teams'
+import { TEAM_LOGO_LIMIT_BYTES, validateUsername } from '../domain/teams'
+import { lookupUsername } from '../lib/profile'
 import { useSync, syncNow } from '../lib/sync'
+import { CoinAmount } from './CoinAmount'
+import {
+  claimUnassignedProgress,
+  getUnassignedProgress,
+  isInitialClaimResolved,
+  resolveInitialClaim,
+  type LocalProgressSummary,
+} from '../lib/localProgress'
 import './AccountCard.css'
 
 function GoogleLogo() {
@@ -13,11 +27,90 @@ function GoogleLogo() {
   )
 }
 
+function MicrosoftLogo() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path fill="#f25022" d="M0 0h8.5v8.5H0z" />
+      <path fill="#7fba00" d="M9.5 0H18v8.5H9.5z" />
+      <path fill="#00a4ef" d="M0 9.5h8.5V18H0z" />
+      <path fill="#ffb900" d="M9.5 9.5H18V18H9.5z" />
+    </svg>
+  )
+}
+
 export function AccountCard() {
   const user = useAuth((s) => s.user)
   const ready = useAuth((s) => s.ready)
   const signInGoogle = useAuth((s) => s.signInGoogle)
+  const signInMicrosoft = useAuth((s) => s.signInMicrosoft)
   const signOut = useAuth((s) => s.signOut)
+  const profile = useProfile((s) => s.profile)
+  const profileLoading = useProfile((s) => s.loading)
+  const profileError = useProfile((s) => s.error)
+  const loadProfile = useProfile((s) => s.load)
+  const saveProfile = useProfile((s) => s.save)
+  const claimUsername = useProfile((s) => s.claimUsername)
+  const teamCount = useTeams((s) => s.teams.length)
+  const invitationCount = useTeams((s) => s.invitations.length)
+  const syncStatus = useSync((s) => s.status)
+  const [localProgress, setLocalProgress] = useState<LocalProgressSummary | null>(null)
+  const [initialClaimResolved, setInitialClaimResolved] = useState(isInitialClaimResolved)
+  const [claiming, setClaiming] = useState(false)
+  const [claimError, setClaimError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (user) void loadProfile()
+  }, [loadProfile, user])
+
+  useEffect(() => {
+    let active = true
+    setInitialClaimResolved(isInitialClaimResolved())
+    setClaimError(null)
+    if (!user) {
+      setLocalProgress(null)
+      return () => { active = false }
+    }
+    void getUnassignedProgress()
+      .then((summary) => {
+        if (!active) return
+        setLocalProgress(summary)
+        if (!isInitialClaimResolved() && !summary.hasAny) {
+          resolveInitialClaim()
+          setInitialClaimResolved(true)
+        }
+      })
+      .catch((error) => {
+        if (active) setClaimError(error instanceof Error ? error.message : 'Could not inspect local progress')
+      })
+    return () => { active = false }
+  }, [user?.id])
+
+  const claimLocalProgress = async () => {
+    if (!user || claiming) return
+    setClaiming(true)
+    setClaimError(null)
+    try {
+      if (useSync.getState().status !== 'synced') {
+        await syncNow()
+        if (useSync.getState().status !== 'synced') {
+          throw new Error('Sync this account before claiming local progress.')
+        }
+      }
+      await claimUnassignedProgress(user.id, initialClaimResolved ? 'additional' : 'initial')
+      setInitialClaimResolved(true)
+      setLocalProgress(await getUnassignedProgress())
+      void syncNow()
+    } catch (error) {
+      setClaimError(error instanceof Error ? error.message : 'Could not claim local progress')
+    } finally {
+      setClaiming(false)
+    }
+  }
+
+  const keepLocalProgress = () => {
+    resolveInitialClaim()
+    setInitialClaimResolved(true)
+  }
 
   return (
     <div className="card">
@@ -30,13 +123,19 @@ export function AccountCard() {
       ) : !user ? (
         <>
           <p className="muted" style={{ marginTop: 0 }}>
-            You’re playing locally on this device. Sign in with Google to back up your
+            You’re playing locally on this device. Sign in with Google or Microsoft to back up your
             progress and sync it across devices.
           </p>
-          <button className="google-btn" onClick={signInGoogle}>
-            <GoogleLogo />
-            Sign in with Google
-          </button>
+          <div className="account-oauth-actions">
+            <button className="oauth-btn oauth-btn--google" onClick={signInGoogle}>
+              <GoogleLogo />
+              Sign in with Google
+            </button>
+            <button className="oauth-btn oauth-btn--microsoft" onClick={signInMicrosoft}>
+              <MicrosoftLogo />
+              Sign in with Microsoft
+            </button>
+          </div>
         </>
       ) : (
         <>
@@ -44,13 +143,238 @@ export function AccountCard() {
             Signed in{user.email ? <> as <strong>{user.email}</strong></> : ''}. Your
             progress is backed up.
           </p>
+          <ProfileEditor
+            email={user.email}
+            profile={profile}
+            loading={profileLoading}
+            error={profileError}
+            onSave={saveProfile}
+            onClaimUsername={claimUsername}
+          />
+          {localProgress?.hasAny && (
+            <LocalProgressNotice
+              summary={localProgress}
+              initial={!initialClaimResolved}
+              claiming={claiming}
+              error={claimError}
+              syncBlocked={syncStatus === 'syncing'}
+              onClaim={() => void claimLocalProgress()}
+              onKeep={keepLocalProgress}
+            />
+          )}
           <SyncLine />
+          <Link to="/teams" className="account-teams-link">
+            <span>
+              <strong>Teams</strong>
+              <small>{teamCount ? `${teamCount} team${teamCount === 1 ? '' : 's'}` : 'Create or join a team'}</small>
+            </span>
+            {invitationCount > 0 && <b>{invitationCount}</b>}
+            <span aria-hidden="true">›</span>
+          </Link>
           <button className="btn btn--ghost" style={{ width: '100%' }} onClick={signOut}>
             Sign out
           </button>
         </>
       )}
     </div>
+  )
+}
+
+function LocalProgressNotice({
+  summary,
+  initial,
+  claiming,
+  error,
+  syncBlocked,
+  onClaim,
+  onKeep,
+}: {
+  summary: LocalProgressSummary
+  initial: boolean
+  claiming: boolean
+  error: string | null
+  syncBlocked: boolean
+  onClaim: () => void
+  onKeep: () => void
+}) {
+  return (
+    <section className="account-local-progress">
+      <div className="account-local-progress__heading">Local progress on this device</div>
+      <p>
+        {summary.cellCount.toLocaleString()} explored {summary.cellCount === 1 ? 'tile' : 'tiles'}
+        {summary.rideCount > 0 && <> · {summary.rideCount} {summary.rideCount === 1 ? 'ride' : 'rides'}</>}
+        {summary.wallet.balance > 0 && <> · <CoinAmount copper={summary.wallet.balance} size="sm" /></>}
+      </p>
+      {initial ? (
+        <p>This progress has not been associated with an account yet.</p>
+      ) : (
+        <p>It is separate from this account and remains on this device until you claim it.</p>
+      )}
+      {error && <div className="account-local-progress__error">{error}</div>}
+      <div className="account-local-progress__actions">
+        <button className="btn btn--primary" onClick={onClaim} disabled={claiming || syncBlocked}>
+          {claiming ? 'Claiming…' : syncBlocked ? 'Syncing account…' : initial ? 'Use with this account' : 'Claim local progress'}
+        </button>
+        {initial && (
+          <button className="btn btn--ghost" onClick={onKeep} disabled={claiming}>
+            Keep separate for now
+          </button>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function ProfileEditor({
+  email,
+  profile,
+  loading,
+  error,
+  onSave,
+  onClaimUsername,
+}: {
+  email: string | undefined
+  profile: ReturnType<typeof useProfile.getState>['profile']
+  loading: boolean
+  error: string | null
+  onSave: (displayName: string, avatarUrl: string | null) => Promise<void>
+  onClaimUsername: (username: string) => Promise<void>
+}) {
+  const [displayName, setDisplayName] = useState(profile?.displayName ?? '')
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatarUrl ?? '')
+  const [username, setUsername] = useState('')
+  const [availability, setAvailability] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
+  const [localError, setLocalError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    setDisplayName(profile?.displayName ?? '')
+    setAvatarUrl(profile?.avatarUrl ?? '')
+  }, [profile])
+
+  const handleAvatar = (file: File | undefined) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setLocalError('Choose an image file.')
+      return
+    }
+    if (file.size > TEAM_LOGO_LIMIT_BYTES) {
+      setLocalError('Images must be 256 KB or smaller.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => setAvatarUrl(String(reader.result))
+    reader.readAsDataURL(file)
+    setLocalError(null)
+  }
+
+  const save = async () => {
+    if (!displayName.trim()) {
+      setLocalError('Display name is required.')
+      return
+    }
+    setLocalError(null)
+    setSaved(false)
+    await onSave(displayName.trim(), avatarUrl.trim() || null)
+    setSaved(true)
+  }
+
+  const claim = async () => {
+    if (!await checkAvailability()) return
+    setLocalError(null)
+    await onClaimUsername(username.trim())
+    setUsername('')
+    setAvailability('idle')
+  }
+
+  const checkAvailability = async (): Promise<boolean> => {
+    const validation = validateUsername(username)
+    if (validation) {
+      setLocalError(validation)
+      setAvailability('idle')
+      return false
+    }
+    setLocalError(null)
+    setAvailability('checking')
+    try {
+      const match = await lookupUsername(username)
+      if (match) {
+        setAvailability('taken')
+        setLocalError('That username is already taken.')
+        return false
+      }
+      setAvailability('available')
+      return true
+    } catch (caught) {
+      setAvailability('idle')
+      setLocalError(caught instanceof Error ? caught.message : 'Could not check username availability.')
+      return false
+    }
+  }
+
+  return (
+    <section className="account-profile" aria-labelledby="profile-title">
+      <div className="account-profile__heading">
+        <div>
+          <h2 id="profile-title">Profile</h2>
+          <p>Team identity is separate from your private rides and wallet.</p>
+        </div>
+        {profile?.avatarUrl ? <img src={profile.avatarUrl} alt="" className="account-profile__avatar" /> : <div className="account-profile__avatar account-profile__avatar--empty" aria-hidden />}
+      </div>
+
+      <div className="account-profile__identity">
+        <span className="account-profile__label">Email</span>
+        <strong>{email ?? 'Signed-in account'}</strong>
+      </div>
+
+      {profile?.username ? (
+        <div className="account-profile__identity">
+          <span className="account-profile__label">Username</span>
+          <strong>@{profile.username}</strong>
+          <small>Permanent account handle</small>
+        </div>
+      ) : (
+        <div className="account-profile__claim">
+          <label htmlFor="profile-username">Choose username</label>
+          <div className="account-profile__input-row">
+            <span aria-hidden="true">@</span>
+            <input
+              id="profile-username"
+              value={username}
+              onChange={(event) => { setUsername(event.target.value); setAvailability('idle'); setLocalError(null) }}
+              placeholder="your-handle"
+              autoComplete="off"
+              maxLength={24}
+            />
+            <button className="btn btn--small" onClick={() => void checkAvailability()} disabled={loading || !username.trim() || availability === 'checking'}>
+              {availability === 'checking' ? 'Checking…' : 'Check'}
+            </button>
+            <button className="btn btn--small" onClick={() => void claim()} disabled={loading || availability !== 'available'}>
+              Save username
+            </button>
+          </div>
+          <small>{availability === 'available' ? 'Available. ' : availability === 'taken' ? 'Unavailable. ' : ''}3-24 characters. Once claimed, it cannot be renamed or recycled.</small>
+        </div>
+      )}
+
+      <label className="account-profile__field">
+        <span>Display name</span>
+        <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={80} />
+      </label>
+      <label className="account-profile__field">
+        <span>Avatar image URL</span>
+        <input value={avatarUrl} onChange={(event) => setAvatarUrl(event.target.value)} placeholder="Optional" maxLength={2000} />
+      </label>
+      <label className="account-profile__file">
+        <span>Or choose a small image</span>
+        <input type="file" accept="image/*" onChange={(event) => handleAvatar(event.target.files?.[0])} />
+      </label>
+      {(localError || error) && <p className="account-profile__error">{localError ?? error}</p>}
+      {saved && <p className="account-profile__saved">Profile saved.</p>}
+      <button className="btn btn--ghost account-profile__save" onClick={() => void save()} disabled={loading}>
+        {loading ? 'Saving…' : 'Save profile'}
+      </button>
+    </section>
   )
 }
 

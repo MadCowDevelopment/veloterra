@@ -1,4 +1,4 @@
-import { db, type RegionRow } from '../data/db'
+import { db, dbReady, type RegionRow } from '../data/db'
 import type { Bounds } from './tiles'
 
 const TILE_CACHE = 'basemap-openfreemap'
@@ -24,11 +24,13 @@ export async function addRegion(
     tiles,
     createdAt: Date.now(),
   }
+  await dbReady
   await db.regions.put(row)
   return row
 }
 
-export function listRegions(): Promise<RegionRow[]> {
+export async function listRegions(): Promise<RegionRow[]> {
+  await dbReady
   return db.regions.orderBy('createdAt').reverse().toArray()
 }
 
@@ -37,6 +39,7 @@ export function listRegions(): Promise<RegionRow[]> {
  * still needs (reference counting on the stored URL lists).
  */
 export async function deleteRegion(id: string): Promise<void> {
+  await dbReady
   const [target, others] = await Promise.all([
     db.regions.get(id),
     db.regions.where('id').notEqual(id).toArray(),
@@ -56,5 +59,6 @@ export async function deleteRegion(id: string): Promise<void> {
 }
 
 export async function clearAllRegions(): Promise<void> {
+  await dbReady
   await db.regions.clear()
 }

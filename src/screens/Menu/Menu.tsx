@@ -45,6 +45,9 @@ export function Menu() {
             Settings
           </Link>
         </div>
+        <Link to="/teams" className="btn btn--ghost menu__teams-link">
+          Teams
+        </Link>
       </nav>
 
     </div>
