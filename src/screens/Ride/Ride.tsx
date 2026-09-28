@@ -41,6 +41,7 @@ export function Ride() {
   const [hudVisible, setHudVisible] = useState(true)
   const [liveShareEnabled, setLiveShareEnabled] = useState(false)
   const [liveTeamId, setLiveTeamId] = useState('')
+  const [isLeaving, setIsLeaving] = useState(false)
   const headingUp = usePrefs((state) => state.headingUp)
   const setHeadingUp = usePrefs((state) => state.setHeadingUp)
 
@@ -54,6 +55,7 @@ export function Ride() {
   const phaseRef = useRef<Phase>('idle')
   const lastPresenceSent = useRef(0)
   const rideScope = useRef<string | null>(null)
+  const leavingRef = useRef(false)
 
   const user = useAuth((state) => state.user)
   const teams = useTeams((state) => state.teams)
@@ -112,7 +114,7 @@ export function Ride() {
 
   // Only accumulate distance, reveal fog and award coins while tracking.
   useEffect(() => {
-    if (phase !== 'tracking' || !fix || fix.accuracy > MAX_ACCURACY_M) return
+    if (phase !== 'tracking' || leavingRef.current || !fix || fix.accuracy > MAX_ACCURACY_M) return
 
     const point = { lng: fix.lng, lat: fix.lat }
     if (fix.speed != null && fix.speed >= 0) {
@@ -227,17 +229,24 @@ export function Ride() {
   }
 
   const leave = async () => {
+    if (leavingRef.current) return
+    leavingRef.current = true
+    setIsLeaving(true)
+
+    const leavingPhase = phase
+    const endedAt = Date.now()
     if (liveShareEnabled && liveTeamId) {
-      await stopPresence(liveTeamId).catch(() => undefined)
+      void stopPresence(liveTeamId).catch(() => undefined)
       setLiveShareEnabled(false)
     }
-    if (phase !== 'idle') {
+    if (leavingPhase !== 'idle') {
       const durationMs =
-        elapsedMs + (runningSince.current ? Date.now() - runningSince.current : 0)
+        elapsedMs + (runningSince.current ? endedAt - runningSince.current : 0)
+      runningSince.current = null
       finishRideStat()
       const id = await addRide({
         startedAt: startedAt.current,
-        endedAt: Date.now(),
+        endedAt,
         durationMs,
         distanceM,
         coins: coinsThisRide,
@@ -245,8 +254,8 @@ export function Ride() {
         path: path.current,
         maxSpeedKmh: Math.round(maxSpeed.current * 10) / 10,
       }, rideScope.current ?? localScope)
-      if (!simulated) await syncNow() // simulated progress must stay local
       navigate(`/rides/${id}`)
+      if (!simulated) void syncNow() // simulated progress must stay local
       return
     }
     navigate('/')
@@ -286,7 +295,7 @@ export function Ride() {
       />
 
       <div className={`ride__hud ride__hud--top${hidden}`}>
-        <button className="pill-btn" onClick={leave} aria-label="Back to menu">
+        <button className="pill-btn" onClick={leave} aria-label="Back to menu" disabled={isLeaving}>
           ✕
         </button>
         <div className="ride__top-right">
@@ -311,7 +320,7 @@ export function Ride() {
             <div className="ride__hint">
               {simulated ? 'Click the map to place the rider.' : 'Look around the map, then start your ride.'}
             </div>
-            <button className="start-btn" onClick={start} disabled={!gpsReady}>
+            <button className="start-btn" onClick={start} disabled={!gpsReady || isLeaving}>
               {gpsReady ? 'Start Ride' : 'Getting GPS…'}
             </button>
           </>
@@ -345,16 +354,16 @@ export function Ride() {
             </div>
 
             {phase === 'tracking' ? (
-              <button className="pause-btn" onClick={pause}>
+              <button className="pause-btn" onClick={pause} disabled={isLeaving}>
                 Pause
               </button>
             ) : (
               <div className="ride__pauserow">
-                <button className="resume-btn" onClick={resume}>
+                <button className="resume-btn" onClick={resume} disabled={isLeaving}>
                   Resume
                 </button>
-                <button className="finish-btn" onClick={leave}>
-                  Finish
+                <button className="finish-btn" onClick={leave} disabled={isLeaving}>
+                  {isLeaving ? 'Saving…' : 'Finish'}
                 </button>
               </div>
             )}
