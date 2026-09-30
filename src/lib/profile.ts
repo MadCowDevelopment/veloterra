@@ -24,7 +24,7 @@ function fromRow(row: ProfileRow): Profile {
 
 export function suggestedDisplayName(user: User): string {
   const metadata = user.user_metadata
-  return String(metadata.full_name ?? metadata.name ?? user.email ?? 'VeloTerra rider').slice(0, 80)
+  return String(metadata.full_name || metadata.name || 'VeloTerra rider').slice(0, 80)
 }
 
 export async function loadMyProfile(user: User): Promise<Profile> {

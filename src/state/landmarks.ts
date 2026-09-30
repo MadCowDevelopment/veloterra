@@ -4,7 +4,7 @@ import { useAuth } from './auth'
 import { MIN_LANDMARK_CONTRIBUTION_COPPER } from '../domain/economy'
 import { useWallet } from './wallet'
 import type { Landmark, LandmarkBounds, LandmarkCategory } from '../domain/landmarks'
-import { saveMyProfile, suggestedDisplayName } from '../lib/profile'
+import { loadMyProfile } from '../lib/profile'
 
 interface LandmarkRow {
   id: string
@@ -75,11 +75,9 @@ function mergeLandmarks(existing: Landmark[], incoming: Landmark[]): Landmark[] 
   return [...byId.values()]
 }
 
-async function syncProfile(user: NonNullable<ReturnType<typeof useAuth.getState>['user']>) {
+async function ensureProfile(user: NonNullable<ReturnType<typeof useAuth.getState>['user']>) {
   if (syncedProfileUserId === user.id) return
-  const displayName = user.user_metadata.full_name ?? user.user_metadata.name ?? user.email ?? 'VeloTerra rider'
-  const avatarUrl = user.user_metadata.avatar_url ?? user.user_metadata.picture ?? null
-  await saveMyProfile(String(displayName || suggestedDisplayName(user)).slice(0, 80), avatarUrl)
+  await loadMyProfile(user)
   syncedProfileUserId = user.id
 }
 
@@ -209,7 +207,7 @@ export const useLandmarks = create<LandmarkStore>((set, get) => ({
       throw new Error('The minimum contribution is 1 gold')
     }
 
-    await syncProfile(user)
+    await ensureProfile(user)
     const { data, error } = await supabase.rpc('contribute_to_landmark', {
       p_landmark_id: landmarkId,
       p_requested_amount: copper,

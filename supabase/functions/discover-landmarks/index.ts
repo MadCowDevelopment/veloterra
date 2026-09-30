@@ -10,6 +10,9 @@ const TIER_BASE_COPPER = [10_000, 100_000, 1_000_000, 5_000_000] as const
 const CLASSIFICATION_VERSION = 3
 const MAX_SPAN_DEGREES = 0.16
 const DISCOVERY_AREA_STEP = 0.02
+// Must match the client's discovery area in src/state/landmarks.ts.
+const DISCOVERY_AREA_HALF_WIDTH = 0.01
+const DISCOVERY_AREA_HALF_HEIGHT = 0.012
 const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
@@ -105,6 +108,17 @@ function tierFor(tags: Tags): 1 | 2 | 3 | 4 {
 function isRelevantLandmark(category: Category, tags: Tags): boolean {
   if (!MEDIA_REQUIRED_CATEGORIES.has(category)) return true
   return Boolean(tags.wikidata || tags.wikipedia || tags.wikimedia_commons)
+}
+
+function discoveryAreaBounds(latIndex: number, lngIndex: number): Bounds {
+  const latitude = latIndex * DISCOVERY_AREA_STEP
+  const longitude = lngIndex * DISCOVERY_AREA_STEP
+  return {
+    west: Math.max(-180, longitude - DISCOVERY_AREA_HALF_WIDTH),
+    south: Math.max(-90, latitude - DISCOVERY_AREA_HALF_HEIGHT),
+    east: Math.min(180, longitude + DISCOVERY_AREA_HALF_WIDTH),
+    north: Math.min(90, latitude + DISCOVERY_AREA_HALF_HEIGHT),
+  }
 }
 
 function buildQuery({ south, west, north, east }: Bounds): string {
@@ -246,9 +260,11 @@ Deno.serve(async (request) => {
       throw new Error('Zoom in to discover landmarks')
     }
 
-    const centerLat = (bounds.south + bounds.north) / 2
-    const centerLng = (bounds.west + bounds.east) / 2
-    const areaKey = `${Math.round(centerLat / DISCOVERY_AREA_STEP)}:${Math.round(centerLng / DISCOVERY_AREA_STEP)}`
+    const latIndex = Math.round((bounds.south + bounds.north) / 2 / DISCOVERY_AREA_STEP)
+    const lngIndex = Math.round((bounds.west + bounds.east) / 2 / DISCOVERY_AREA_STEP)
+    const areaKey = `${latIndex}:${lngIndex}`
+    // Coverage is recorded per area, so always scan the full area rather than client-chosen bounds.
+    const areaBounds = discoveryAreaBounds(latIndex, lngIndex)
     const { data: claim, error: claimError } = await userClient.rpc('claim_landmark_discovery', {
       p_area_key: areaKey,
       p_classification_version: CLASSIFICATION_VERSION,
@@ -260,10 +276,10 @@ Deno.serve(async (request) => {
 
     let payload: { elements: OverpassElement[] }
     try {
-      payload = await queryOsmMap(bounds)
+      payload = await queryOsmMap(areaBounds)
     } catch (mapError) {
       try {
-        payload = await queryOverpass(bounds)
+        payload = await queryOverpass(areaBounds)
       } catch (overpassError) {
         const { error: releaseError } = await adminClient
           .from('landmark_discovery_requests')
