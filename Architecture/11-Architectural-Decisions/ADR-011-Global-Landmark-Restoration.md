@@ -12,7 +12,7 @@ VeloTerra needs a shared coin sink based on real-world landmarks. All authentica
 ## Decision
 
 - Discover named landmark candidates around newly explored areas during authenticated, non-simulated rides through a Supabase Edge Function. Map browsing never triggers discovery.
-- Backfill persisted explored cells incrementally on the exploration screen. Globally completed discovery areas are recorded with their classifier version so all riders reuse compatible prior catalog work without consuming the application-enforced quota.
+- Backfill persisted explored cells incrementally on the exploration screen. Globally completed discovery areas are recorded with their classifier version so all riders reuse compatible prior catalog work without consuming the application-enforced quota. The edge function derives the scanned bounds from the area key and ignores the client-supplied extent, so an area cannot be marked complete from a partial scan.
 - Exclude wayside crosses and shrines from the initial catalog.
 - Normalize OSM tags into 20 controlled categories and four significance tiers.
 - Prefer Wikidata identity when available; otherwise use the OSM element type and identifier.

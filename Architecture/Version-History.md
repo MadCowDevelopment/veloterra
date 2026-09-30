@@ -2,6 +2,7 @@
 
 | Version | Date | Author | Change |
 |---|---|---|---|
+| 1.16 | 2026-09-30 | VeloTerra maintainers | Closed NULL-role bypass in team RPCs, hid per-member team cell rows, derived landmark discovery bounds server-side, and stopped email-based display names. |
 | 1.15 | 2026-09-26 | VeloTerra maintainers | Added account-scoped local progress, safe legacy migration, and explicit claiming for signed-out device data. |
 | 1.14 | 2026-09-26 | VeloTerra maintainers | Added Microsoft OAuth through Microsoft Entra ID alongside Google authentication for optional Supabase-backed account sync. |
 | 1.13 | 2026-09-25 | VeloTerra maintainers | Documented the first-release team collaboration boundary, RLS controls, offline contribution outbox, live presence expiry, and remaining hosted validation gates. |
